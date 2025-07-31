@@ -1,0 +1,46 @@
+name: Docker CI (Spring Boot)
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v2
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+
+    - name: Grant execute permission to gradlew
+      run: chmod +x ./gradlew
+
+    - name: Remove application.yml if exists
+      run: rm -f src/main/resources/application.yml
+
+    - name: Create application.yml from secret
+      run: echo "${{ secrets.APPLICATION_YAML }}" > src/main/resources/application.yml
+
+    - name: Build Spring Boot project without tests
+      run: ./gradlew clean build -x test
+
+    - name: Build Docker image
+      run: |
+        docker build \
+          --build-arg APPLICATION_YAML="${{ secrets.APPLICATION_YAML }}" \
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.PROJECT_NAME }}:latest .
+
+    - name: Docker login
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Push Docker image to DockerHub
+      run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.PROJECT_NAME }}:latest
