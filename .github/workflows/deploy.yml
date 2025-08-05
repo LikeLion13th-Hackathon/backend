@@ -20,7 +20,7 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
-          docker stop hackathon-container || true
-          docker rm hackathon-container || true
-          docker pull heui0716/hackathon
-          docker run -d -p 80:9090 --name hackathon-container heui0716/hackathon
+          sudo docker stop hackathon-container || true
+          sudo docker rm hackathon-container || true
+          sudo docker pull heui0716/hackathon
+          sudo docker run -d -p 80:9090 --name hackathon-container heui0716/hackathon
