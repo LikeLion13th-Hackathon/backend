@@ -1,20 +1,22 @@
+server:
+  port: 9090
+
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+    url: jdbc:mysql://localhost:3307/hackathon
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
   h2:
     console:
-      enabled: true
+      enabled: false  # H2 비활성화
 
   jpa:
     hibernate:
-      ddl-auto: create
-    show-sql: true
+      ddl-auto: update
     properties:
       hibernate:
-        format_sql: true
-
-server:
-  port: 9090
+        dialect: org.hibernate.dialect.MySQLDialect
+    show-sql: true
+    format_sql: true
