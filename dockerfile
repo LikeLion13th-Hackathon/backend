@@ -5,10 +5,12 @@ FROM openjdk:17-jdk
 WORKDIR /app
 
 # 3. 빌드된 JAR 파일을 컨테이너에 복사
-# COPY build/libs/*.jar app.jar
-COPY build/libs/*.jar .
+COPY build/libs/*.jar app.jar
+
+# COPY build/libs/*.jar .
 # RUN mv *.jar app.jar
-RUN JAR_NAME=$(find . -name "*.jar" | head -n 1) && mv "$JAR_NAME" app.jar
+
+# RUN JAR_NAME=$(find . -name "*.jar" | head -n 1) && mv "$JAR_NAME" app.jar
 
 # 4. application.yml을 위한 리소스 디렉토리 생성
 RUN mkdir -p /app/src/main/resources
