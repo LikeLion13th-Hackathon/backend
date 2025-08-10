@@ -1,0 +1,54 @@
+package com.example.hackathon.service;
+
+import com.example.hackathon.dto.auth.LoginRequest;
+import com.example.hackathon.dto.auth.LoginResponse;
+import com.example.hackathon.dto.auth.SignUpRequest;
+import com.example.hackathon.entity.User;
+import com.example.hackathon.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final BCryptPasswordEncoder passwordEncoder;
+
+    @Transactional
+    public Integer register(SignUpRequest req) {
+        if (userRepository.existsByEmail(req.email())) {
+            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+        }
+        String hash = passwordEncoder.encode(req.password());
+
+        User saved = userRepository.save(
+            User.builder()
+                .nickname(req.nickname())
+                .email(req.email())
+                .passwordHash(hash)
+                .birthDate(req.birthDate())
+                .isOver14(req.isOver14())
+                .region(req.region())
+                .marketingConsent(req.marketingConsent())
+                .serviceAgreed(req.serviceAgreed())
+                .privacyAgreed(req.privacyAgreed())
+                .build()
+        );
+        return saved.getId();
+    }
+
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest req) {
+        User user = userRepository.findByEmail(req.email())
+            .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
+
+        if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        return new LoginResponse(user.getId(), user.getNickname(), user.getEmail(), "로그인 성공");
+    }
+}
