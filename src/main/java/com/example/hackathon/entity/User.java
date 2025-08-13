@@ -1,3 +1,4 @@
+// src/main/java/com/example/hackathon/entity/User.java
 package com.example.hackathon.entity;
 
 import jakarta.persistence.*;
@@ -11,9 +12,8 @@ import java.time.LocalDateTime;
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor @Builder
 @Entity
-@Table(name = "`user`") 
+@Table(name = "`user`")
 public class User {
-
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
@@ -32,8 +32,13 @@ public class User {
     @Column(name="is_over_14", nullable=false)
     private Boolean isOver14;
 
-    @Column(length=10)
-    private String region;
+    @Column(length=20)  private String sido;     // 시/도
+    @Column(length=30)  private String sigungu;  // 시/군·구
+    @Column(length=40)  private String dong;     // 읍·면·동
+    @Column(length=20)  private String role;     // 역할(학생/주부/직장인 등)
+
+    @Column(name="location_consent", nullable=false)
+    private Boolean locationConsent;
 
     @Column(name="marketing_consent", nullable=false)
     private Boolean marketingConsent;

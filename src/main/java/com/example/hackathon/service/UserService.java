@@ -1,3 +1,4 @@
+// src/main/java/com/example/hackathon/service/UserService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.dto.auth.LoginRequest;
@@ -31,7 +32,11 @@ public class UserService {
                 .passwordHash(hash)
                 .birthDate(req.birthDate())
                 .isOver14(req.isOver14())
-                .region(req.region())
+                .sido(req.sido())
+                .sigungu(req.sigungu())
+                .dong(req.dong())
+                .role(req.role())
+                .locationConsent(req.locationConsent())
                 .marketingConsent(req.marketingConsent())
                 .serviceAgreed(req.serviceAgreed())
                 .privacyAgreed(req.privacyAgreed())
