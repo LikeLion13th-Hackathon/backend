@@ -29,13 +29,11 @@ public class User {
     @Column(name="birth_date", nullable=false)
     private LocalDate birthDate;
 
-    @Column(name="is_over_14", nullable=false)
-    private Boolean isOver14;
-
     @Column(length=20)  private String sido;     // 시/도
     @Column(length=30)  private String sigungu;  // 시/군·구
     @Column(length=40)  private String dong;     // 읍·면·동
     @Column(length=20)  private String role;     // 역할(학생/주부/직장인 등)
+    @Column(length=20)  private String place;    // 선호 장소
 
     @Column(name="location_consent", nullable=false)
     private Boolean locationConsent;

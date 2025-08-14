@@ -31,7 +31,6 @@ public class UserService {
                 .email(req.email())
                 .passwordHash(hash)
                 .birthDate(req.birthDate())
-                .isOver14(req.isOver14())
                 .sido(req.sido())
                 .sigungu(req.sigungu())
                 .dong(req.dong())
