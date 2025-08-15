@@ -2,21 +2,21 @@ package com.example.hackathon.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import lombok.Setter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Table(name = "characters")
 @Getter @Setter
 @NoArgsConstructor
-public class Character {
+public class CharacterEntity {
 
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "character_id")
   private Long id;
 
-  // user.id = INT 이므로 Integer 사용
+  // user.id = INT
   @Column(name = "user_id", nullable = false)
   private Integer userId;
 
