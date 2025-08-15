@@ -1,6 +1,8 @@
 package com.example.hackathon.controller;
 
-import com.example.hackathon.dto.*;
+import com.example.hackathon.dto.BackgroundDTO;
+import com.example.hackathon.dto.CharacterInfoDTO;
+import com.example.hackathon.dto.ShopOverviewDTO;
 import com.example.hackathon.service.ShopService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -15,7 +17,7 @@ public class ShopController {
 
   private final ShopService shopService;
 
-  // TODO: 실제 인증 붙이면 SecurityContext에서 userId(INT) 추출
+  // TODO: 실제 인증 연동 시 SecurityContext에서 Integer userId 추출
   private Integer currentUserId() { return 1; }
 
   @GetMapping("/overview")
@@ -36,7 +38,7 @@ public class ShopController {
   @PostMapping("/purchase/background")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void purchase(@RequestParam Long backgroundId) {
-    shopService.purchaseBackground(currentUserId(), backgroundId);
+    shopService.purchaseBackground(currentUserId(), backgroundId); // (Integer, Long) 시그니처 일치
   }
 
   @PatchMapping("/backgrounds/{backgroundId}/activate")
