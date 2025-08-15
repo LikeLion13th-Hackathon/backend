@@ -20,3 +20,4 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
     show-sql: true
     format_sql: true
+    
