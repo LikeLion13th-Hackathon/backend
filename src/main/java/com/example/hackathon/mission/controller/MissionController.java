@@ -1,0 +1,122 @@
+package com.example.hackathon.mission.controller;
+
+import com.example.hackathon.entity.User;
+import com.example.hackathon.mission.dto.CompleteRequest;
+import com.example.hackathon.mission.dto.MissionResponse;
+import com.example.hackathon.mission.entity.PlaceCategory;
+import com.example.hackathon.mission.entity.UserMission;
+import com.example.hackathon.mission.service.MissionService;
+import com.example.hackathon.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/api/missions")
+public class MissionController {
+
+    private final MissionService missionService;
+    private final UserRepository userRepository;
+
+    private String resolveEmail(HttpServletRequest request) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && StringUtils.hasText(auth.getName()) && !"anonymousUser".equals(auth.getName())) {
+            return auth.getName();
+        }
+        String header = request.getHeader("X-USER-EMAIL"); // Postman 테스트용
+        return StringUtils.hasText(header) ? header : null;
+    }
+
+    private User currentUser(HttpServletRequest request){
+        String email = resolveEmail(request);
+        if (!StringUtils.hasText(email)) {
+            throw new RuntimeException("인증 정보가 없습니다. (JWT 또는 X-USER-EMAIL 필요)");
+        }
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
+    }
+
+
+    // 맞춤 미션 목록 조회
+    @GetMapping("/custom")
+    public ResponseEntity<?> listCustomMissions(HttpServletRequest request) {
+        User user = currentUser(request);
+
+        List<PlaceCategory> prefs = List.of(
+                user.getPref1(),
+                user.getPref2(),
+                user.getPref3()
+        );
+
+        missionService.ensureInitialMissions(user, prefs);
+
+        List<UserMission> list = missionService.listCustomMissions(user);
+        var res = list.stream().map(MissionController::toDto).toList();
+        return ResponseEntity.ok(res);
+    }
+
+
+    // 특정 미션 상세 조회
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id){
+        User user = currentUser(request);
+        UserMission m = missionService.getUserMission(user, id);
+        return ResponseEntity.ok(toDto(m));
+    }
+
+
+    // 미션 시작 (상태: READY -> IN_PROGRESS)
+    @PostMapping("/{id}/start")
+    public ResponseEntity<?> startMission(HttpServletRequest request, @PathVariable Long id){
+        User user = currentUser(request);
+        UserMission m = missionService.start(user, id);
+        return ResponseEntity.ok(toDto(m));
+    }
+
+
+    // 미션 완료 (현재는 인증 방식만 체크, 추후 OCR/사진 확장 예정)
+    @PostMapping("/{id}/complete")
+    public ResponseEntity<?> completeMission(HttpServletRequest request,
+                                             @PathVariable Long id,
+                                             @RequestBody(required = false) CompleteRequest body){
+        User user = currentUser(request);
+        var type = body != null ? body.getVerificationType() : null;
+        UserMission m = missionService.complete(user, id, type);
+        return ResponseEntity.ok(toDto(m));
+    }
+
+
+    // 미션 포기 (상태: IN_PROGRESS -> ABANDONED)
+    @PostMapping("/{id}/abandon")
+    public ResponseEntity<?> abandonMission(HttpServletRequest request, @PathVariable Long id){
+        User user = currentUser(request);
+        UserMission m = missionService.abandon(user, id);
+        return ResponseEntity.ok(toDto(m));
+    }
+
+    private static MissionResponse toDto(UserMission m){
+        return MissionResponse.builder()
+                .missionId(m.getId())
+                .category(m.getCategory())
+                .placeCategory(m.getPlaceCategory())
+                .title(m.getTitle())
+                .description(m.getDescription())
+                .verificationType(m.getVerificationType())
+                .minAmount(m.getMinAmount())
+                .rewardPoint(m.getRewardPoint())
+                .status(m.getStatus())
+                .startDate(m.getStartDate())
+                .endDate(m.getEndDate())
+                .createdAt(m.getCreatedAt())
+                .startedAt(m.getStartedAt())
+                .completedAt(m.getCompletedAt())
+                .build();
+    }
+}
