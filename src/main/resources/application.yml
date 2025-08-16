@@ -23,7 +23,6 @@ spring:
 
     app:
   jwt:
-    secret: ${APP_JWT_SECRET:change-this-in-prod}
-    # 초 단위(기본 2시간 = 7200초)
+    secret: TEST_ONLY_SUPER_LONG_SECRET_KEY_AT_LEAST_32_BYTES_ABCDEFGH_1234567890
     access-token-validity-seconds: 7200
     
