@@ -15,15 +15,18 @@ import java.util.Map;
 @Component
 public class JwtTokenProvider {
 
-    private final SecretKey key;              
+    private final javax.crypto.SecretKey key;
     private final long validitySeconds;
 
     public JwtTokenProvider(
-            @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.access-token-validity-seconds:7200}") long validitySeconds
+        @Value("${app.jwt.secret:DEV_DEFAULT_SECRET_SHOULD_BE_32+_BYTES_1234567890}") String secret,
+        @Value("${app.jwt.access-token-validity-seconds:7200}") long validitySeconds
     ) {
-        // HS256용 시크릿은 최소 32바이트 이상 권장
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        byte[] raw = secret.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (raw.length < 32) {
+            throw new IllegalStateException("app.jwt.secret must be at least 32 bytes. current=" + raw.length);
+        }
+        this.key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(raw);
         this.validitySeconds = validitySeconds;
     }
 
