@@ -23,4 +23,5 @@ jobs:
           sudo docker stop hackathon-container || true
           sudo docker rm hackathon-container || true
           sudo docker pull heui0716/hackathon
-          sudo docker run -d -p 80:9090 --name hackathon-container heui0716/hackathon
+          sudo docker run -d --restart=always -p 9090:9090 --name hackathon-container heui0716/hackathon
+          sudo docker ps -a
