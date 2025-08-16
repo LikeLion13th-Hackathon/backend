@@ -14,12 +14,13 @@ public interface CoinsRepository extends JpaRepository<Coin, Long> { // ← Long
   Optional<Coin> findByUser_Id(Integer userId); // ← 추가
 
   // user_id 기준 잔액 차감
-  @Modifying
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query(value = """
-      UPDATE coins
-         SET balance = balance - :cost
-       WHERE user_id = :userId
-         AND balance >= :cost
-      """, nativeQuery = true)
+    UPDATE coins
+       SET balance = balance - :cost
+     WHERE user_id = :userId
+       AND balance >= :cost
+    """, nativeQuery = true)
   int tryDeduct(@Param("userId") Integer userId, @Param("cost") int cost);
+
 }
