@@ -59,6 +59,6 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
-jar {
-    archiveFileName = "app-${System.currentTimeMillis()}.jar"
+tasks.named('bootJar') {
+	archiveFileName = "app-${System.currentTimeMillis()}.jar"
 }
