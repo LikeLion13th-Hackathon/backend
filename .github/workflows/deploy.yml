@@ -20,8 +20,28 @@ jobs:
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
+          set -e
+
+          # 기존 컨테이너 정리
           sudo docker stop hackathon-container || true
           sudo docker rm hackathon-container || true
+
+          # 최신 이미지 pull
           sudo docker pull heui0716/hackathon
-          sudo docker run -d --restart=always -p 9090:9090 --name hackathon-container heui0716/hackathon
+
+          # 애플리케이션 실행 (호스트 MySQL: 3307 연결)
+          # - host.docker.internal: 컨테이너에서 호스트로 접근하기 위한 별칭
+          # - SPRING_DATASOURCE_* : MySQL 접속 정보 주입
+          sudo docker run -d --restart=always \
+            -p 9090:9090 \
+            --name hackathon-container \
+            --add-host=host.docker.internal:host-gateway \
+            -e SPRING_DATASOURCE_URL='jdbc:mysql://host.docker.internal:3307/hackathon?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul' \
+            -e SPRING_DATASOURCE_USERNAME='root' \
+            -e SPRING_DATASOURCE_PASSWORD='root' \
+            heui0716/hackathon
+
+          # 상태 확인
           sudo docker ps -a
+          sleep 3
+          sudo docker logs --tail 80 hackathon-container
