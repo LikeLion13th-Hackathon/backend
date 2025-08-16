@@ -1,5 +1,6 @@
 package com.example.hackathon.dto.auth;
 
+import com.example.hackathon.mission.entity.PlaceCategory;
 import jakarta.validation.constraints.*;
 import java.time.LocalDate;
 
@@ -14,7 +15,9 @@ public record SignUpRequest(
     @NotBlank @Size(max=30)  String sigungu,
     @NotBlank @Size(max=40)  String dong,
     @NotBlank @Size(max=20)  String role,
-    @NotBlank @Size(max=20)  String place,
+    @NotNull PlaceCategory pref1,
+    @NotNull PlaceCategory pref2,
+    @NotNull PlaceCategory pref3,
     @NotNull  Boolean locationConsent,
 
     @NotNull  Boolean marketingConsent,
