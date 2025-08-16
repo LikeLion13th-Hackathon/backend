@@ -166,4 +166,3 @@ public class ShopService {
     return new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId());
   }
 }
-
