@@ -17,7 +17,6 @@ public class ShopController {
 
   private final ShopService shopService;
 
-  // TODO: 실제 인증 연동 시 SecurityContext에서 Integer userId 추출
   private Integer currentUserId() { return 1; }
 
   @GetMapping("/overview")

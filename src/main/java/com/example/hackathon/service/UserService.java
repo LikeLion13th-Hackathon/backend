@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/service/UserService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.dto.auth.LoginRequest;
@@ -6,6 +5,7 @@ import com.example.hackathon.dto.auth.LoginResponse;
 import com.example.hackathon.dto.auth.SignUpRequest;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.repository.UserRepository;
+import com.example.hackathon.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,6 +17,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @Transactional
     public Integer register(SignUpRequest req) {
@@ -35,6 +36,7 @@ public class UserService {
                 .sigungu(req.sigungu())
                 .dong(req.dong())
                 .role(req.role())
+                .place(req.place())                  
                 .locationConsent(req.locationConsent())
                 .marketingConsent(req.marketingConsent())
                 .serviceAgreed(req.serviceAgreed())
@@ -53,6 +55,14 @@ public class UserService {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
         }
 
-        return new LoginResponse(user.getId(), user.getNickname(), user.getEmail(), "로그인 성공");
+        String token = jwtTokenProvider.generateToken(user.getEmail(), user.getId(), user.getRole());
+        return new LoginResponse(
+                user.getId(),
+                user.getNickname(),
+                user.getEmail(),
+                token,
+                "Bearer",
+                "로그인 성공"
+        );
     }
 }
