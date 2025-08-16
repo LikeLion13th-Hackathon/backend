@@ -6,9 +6,14 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface CoinsRepository extends JpaRepository<Coin, Integer> {
+import java.util.Optional;
 
-  // user_id 기준 잔액 차감. coins 테이블에 user_id가 있어야 합니다(UNIQUE 권장).
+public interface CoinsRepository extends JpaRepository<Coin, Long> { // ← Long으로 수정!
+
+  // 코인 잔액 조회 (User FK로 탐색)
+  Optional<Coin> findByUser_Id(Integer userId); // ← 추가
+
+  // user_id 기준 잔액 차감
   @Modifying
   @Query(value = """
       UPDATE coins
