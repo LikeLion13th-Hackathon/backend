@@ -165,4 +165,22 @@ public class ShopService {
     int toNext = Math.max(0, nextReq - ch.getFeedProgress());
     return new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId());
   }
+
+  // ShopService.java
+  @Transactional(readOnly = true)
+  public CharacterInfoDTO getCharacterInfo(Integer userId) {
+    CharacterEntity ch = characterRepo.findByUserId(userId)
+            .orElseThrow(() -> new NotFoundException("character"));
+
+    int required = feedsRequired(ch.getLevel());
+    int toNext = Math.max(0, required - ch.getFeedProgress());
+
+    return new CharacterInfoDTO(
+            ch.getLevel(),
+            ch.getFeedProgress(),
+            toNext,
+            ch.getActiveBackgroundId()
+    );
+  }
+
 }
