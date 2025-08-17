@@ -1,9 +1,8 @@
 name: Deploy to EC2
-
 on:
   push:
-    branches:
-      - main  # 또는 master
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -11,37 +10,67 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+
+    - name: Configure AWS (for dynamic IP)
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Resolve current EC2 public IP
+      run: |
+        IP=$(aws ec2 describe-instances \
+             --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+             --query "Reservations[0].Instances[0].PublicIpAddress" \
+             --output text)
+        [ -z "$IP" -o "$IP" = "None" ] && { echo "No public IP"; exit 1; }
+        echo "EC2_HOST=$IP" >> $GITHUB_ENV
+        echo "Using $IP"
+
+    - name: Write SSH key
+      run: |
+        echo "${{ secrets.EC2_KEY }}" > key.pem
+        chmod 600 key.pem
 
     - name: Connect & deploy to EC2
       uses: appleboy/ssh-action@v0.1.10
       with:
-        host: ${{ secrets.EC2_HOST }}
+        host: ${{ env.EC2_HOST }}          # ← 동적으로 얻은 IP 사용
         username: ${{ secrets.EC2_USER }}
         key: ${{ secrets.EC2_KEY }}
         script: |
           set -e
 
-          # 기존 컨테이너 정리
-          sudo docker stop hackathon-container || true
-          sudo docker rm hackathon-container || true
+          # 최신 이미지 풀
+          sudo docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.PROJECT_NAME }}:latest
 
-          # 최신 이미지 pull
-          sudo docker pull heui0716/hackathon
+          # (선택) MySQL 3307 보장 - 없으면 띄움
+          if ! sudo ss -ltnp | grep -q ':3307'; then
+            sudo docker rm -f mysql-3307 2>/dev/null || true
+            sudo docker run -d --restart=always --name mysql-3307 \
+              -e MYSQL_ROOT_PASSWORD=root \
+              -e MYSQL_DATABASE=hackathon \
+              -p 3307:3306 \
+              -v /var/lib/mysql-3307:/var/lib/mysql \
+              mysql:8
+          fi
 
-          # 애플리케이션 실행 (호스트 MySQL: 3307 연결)
-          # - host.docker.internal: 컨테이너에서 호스트로 접근하기 위한 별칭
-          # - SPRING_DATASOURCE_* : MySQL 접속 정보 주입
+          # 백엔드 재기동 (80→9090, MySQL 설정 확실히)
+          sudo docker rm -f ${{ secrets.PROJECT_NAME }} 2>/dev/null || true
           sudo docker run -d --restart=always \
-            -p 9090:9090 \
-            --name hackathon-container \
-            --add-host=host.docker.internal:host-gateway \
+            --name ${{ secrets.PROJECT_NAME }} \
+            --add-host host.docker.internal:host-gateway \
+            -p 80:9090 \
             -e SPRING_DATASOURCE_URL='jdbc:mysql://host.docker.internal:3307/hackathon?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul' \
             -e SPRING_DATASOURCE_USERNAME='root' \
             -e SPRING_DATASOURCE_PASSWORD='root' \
-            heui0716/hackathon
+            -e SPRING_DATASOURCE_DRIVER_CLASS_NAME='com.mysql.cj.jdbc.Driver' \
+            -e SPRING_PROFILES_ACTIVE='prod' \
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ secrets.PROJECT_NAME }}:latest
 
-          # 상태 확인
-          sudo docker ps -a
+          # 확인
           sleep 3
-          sudo docker logs --tail 80 hackathon-container
+          sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+          sudo docker logs --tail=80 ${{ secrets.PROJECT_NAME }} || true
