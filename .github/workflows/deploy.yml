@@ -57,3 +57,5 @@ jobs:
             sleep 3
             sudo docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
             sudo docker logs --tail=80 ${{ secrets.PROJECT_NAME }} || true
+
+            
