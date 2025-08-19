@@ -5,11 +5,7 @@ import com.example.hackathon.receipt.OcrStatus;
 
 import java.time.LocalDateTime;
 
-/**
- * 프론트에 필요한 최소 정보만 노출
- * - storagePath (서버 내부 경로) 노출 금지
- * - userId      (토큰으로 서버가 알고 있음) 노출 금지
- */
+
 public record ReceiptResponse(
         Long receiptId,
         Long missionId,
