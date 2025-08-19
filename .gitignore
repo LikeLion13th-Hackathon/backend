@@ -40,4 +40,9 @@ out/
 application.yml
 application.local.yml
 
-
+/uploads/
+/uploads/**/*
+!uploads/.gitkeep
+*.jpg
+*.jpeg
+*.png
