@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/receipt/controller/ReceiptController.java
 package com.example.hackathon.receipt.controller;
 
 import com.example.hackathon.entity.User;
@@ -32,7 +31,7 @@ public class ReceiptController {
     private final UserRepository userRepository;
     private final UserMissionRepository userMissionRepository;
 
-    /** SecurityContext에서 email 추출 */
+
     private String resolveEmail(HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && StringUtils.hasText(auth.getName())) {
@@ -41,7 +40,8 @@ public class ReceiptController {
         return null;
     }
 
-    /** [업로드] 영수증 이미지 업로드 + Receipt(PENDING) 생성 */
+
+    // [업로드] 영수증 이미지 업로드 + Receipt(PENDING) 생성
     @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<ReceiptResponse> upload(
             @PathVariable("mission_id") Long missionId,
@@ -67,7 +67,8 @@ public class ReceiptController {
         return ResponseEntity.ok(ReceiptResponse.from(saved));
     }
 
-    /** [목록] 해당 진행 미션의 영수증 목록(최신순) */
+
+    // 해당 진행 미션의 영수증 목록(최신순)
     @GetMapping
     public ResponseEntity<List<ReceiptResponse>> list(
             @PathVariable("mission_id") Long missionId,
@@ -93,7 +94,8 @@ public class ReceiptController {
         return ResponseEntity.ok(body);
     }
 
-    /** [상세] 영수증 단건 조회 (소유/진행건 검증) */
+
+    // 영수증 단건 조회
     @GetMapping("/{receipt_id}")
     public ResponseEntity<ReceiptResponse> getOne(
             @PathVariable("mission_id") Long missionId,
@@ -115,7 +117,8 @@ public class ReceiptController {
         return ResponseEntity.ok(ReceiptResponse.from(receipt));
     }
 
-    /** [파일] 영수증 이미지 스트리밍 (inline) */
+
+    // 영수증 이미지 불러오기
     @GetMapping("/{receipt_id}/file")
     public ResponseEntity<?> download(
             @PathVariable("mission_id") Long missionId,

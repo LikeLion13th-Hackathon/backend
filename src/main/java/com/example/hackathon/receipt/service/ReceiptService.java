@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/receipt/service/ReceiptService.java
 package com.example.hackathon.receipt.service;
 
 import com.example.hackathon.receipt.entity.Receipt;
@@ -46,7 +45,7 @@ public class ReceiptService {
     @Value("${app.public.path-prefix:/receipts}") // Nginx location 과 동일해야 함
     private String publicPathPrefix;
 
-    /** 서버 기동 시 실제 사용 경로 로그로 확인용 (선택) */
+    // 서버 기동 시 실제 사용 경로 로그로 확인용
     @PostConstruct
     public void logBaseDir() {
         Path p = Paths.get(baseDir).toAbsolutePath().normalize();
@@ -61,7 +60,7 @@ public class ReceiptService {
             throw new IllegalArgumentException("파일이 비어있습니다.");
         }
 
-        // ✅ baseDir을 절대경로로 강제
+        // baseDir을 절대경로로 강제
         Path basePath = Paths.get(baseDir).toAbsolutePath().normalize();
 
         // 날짜 폴더 (예: 2025-08-20)
@@ -80,13 +79,13 @@ public class ReceiptService {
         String savedName = UUID.randomUUID() + ext;
         Path savePath = dir.resolve(savedName);
 
-        // 🚨 Tomcat 임시경로 이슈 방지: Path 오버로드 사용
+        // Tomcat 임시경로 이슈 방지: Path 오버로드 사용
         file.transferTo(savePath);
 
-        // 👉 상대경로 계산 (예: "2025-08-20/uuid.jpg")
+        // 상대경로 계산 (예: "2025-08-20/uuid.jpg")
         String relative = basePath.relativize(savePath).toString().replace("\\", "/");
 
-        // 👉 배포 환경(prod)에서만 publicUrl 생성 (publicBaseUrl 설정되어 있을 때)
+        // 배포 환경(prod)에서만 publicUrl 생성 (publicBaseUrl 설정되어 있을 때)
         String publicUrl = (StringUtils.hasText(publicBaseUrl))
                 ? String.format("%s%s/%s", publicBaseUrl, publicPathPrefix, relative)
                 : null; // 로컬(dev)에서는 null 유지
@@ -97,26 +96,26 @@ public class ReceiptService {
                 .userMission(userMission)
                 .originalFilename(orig)
                 .storagePath(savePath.toAbsolutePath().toString().replace("\\", "/")) // 내부용
-                .publicUrl(publicUrl)  // ✅ 배포면 실제 URL, 로컬이면 null
+                .publicUrl(publicUrl)  // 배포면 실제 URL, 로컬이면 null
                 .ocrStatus(OcrStatus.PENDING)
                 .build();
 
         return receiptRepository.save(receipt);
     }
 
-    /** 진행 중인 미션의 영수증 목록 조회 (최신순) */
+    // 진행 중인 미션의 영수증 목록 조회 (최신순)
     @Transactional(readOnly = true)
     public List<Receipt> findAllByUserMission(Long userMissionId) {
         return receiptRepository.findByUserMission_IdOrderByIdDesc(userMissionId);
     }
 
-    /** 특정 유저 소유의 Receipt 단건 조회 */
+    // 특정 유저 소유의 Receipt 단건 조회
     @Transactional(readOnly = true)
     public Receipt findOwnedReceipt(Long id, Integer userId) {
         return receiptRepository.findByIdAndUser_Id(id, userId).orElse(null);
     }
 
-    /** 파일 Content-Type 추정 */
+    // 파일 Content-Type 추정
     @Transactional(readOnly = true)
     public MediaType probeMediaType(Path path) throws IOException {
         String contentType = Files.probeContentType(path);
@@ -126,7 +125,7 @@ public class ReceiptService {
         return MediaType.parseMediaType(contentType);
     }
 
-    /** 파일 리소스 열기 */
+    // 파일 리소스 열기
     @Transactional(readOnly = true)
     public InputStreamResource openFileResource(Path path) throws IOException {
         return new InputStreamResource(Files.newInputStream(path));
