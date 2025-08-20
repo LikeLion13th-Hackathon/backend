@@ -6,6 +6,7 @@ import com.example.hackathon.mission.repository.UserMissionRepository;
 import com.example.hackathon.receipt.dto.ReceiptResponse;
 import com.example.hackathon.receipt.entity.Receipt;
 import com.example.hackathon.receipt.service.ReceiptService;
+import com.example.hackathon.receipt.service.ReceiptOcrService;
 import com.example.hackathon.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -24,13 +25,13 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/receipt/{mission_id}") // mission_id = 진행중 미션(user_mission) id
+@RequestMapping("/api/receipt/{mission_id}")
 public class ReceiptController {
 
     private final ReceiptService receiptService;
     private final UserRepository userRepository;
     private final UserMissionRepository userMissionRepository;
-
+    private final ReceiptOcrService receiptOcrService;
 
     private String resolveEmail(HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -151,5 +152,30 @@ public class ReceiptController {
                 .header("Cache-Control", "no-store")
                 .contentType(mediaType)
                 .body(resource);
+    }
+
+
+    // 업로드된 영수증에 CLOVA OCR 돌리기
+    @PostMapping("/{receipt_id}/ocr")
+    public ResponseEntity<ReceiptResponse> runOcr(
+            @PathVariable("mission_id") Long missionId,
+            @PathVariable("receipt_id") Long receiptId,
+            HttpServletRequest request
+    ) throws Exception {
+
+        String email = resolveEmail(request);
+        if (!StringUtils.hasText(email)) return ResponseEntity.status(401).build();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("사용자를 찾을 수 없습니다."));
+
+        Receipt receipt = receiptService.findOwnedReceipt(receiptId, user.getId());
+        if (receipt == null) return ResponseEntity.status(404).build();
+        if (!receipt.getUserMission().getId().equals(missionId)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        Receipt updated = receiptOcrService.runOcr(receipt.getId());
+        return ResponseEntity.ok(ReceiptResponse.from(updated));
     }
 }

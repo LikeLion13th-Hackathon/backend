@@ -1,15 +1,16 @@
 package com.example.hackathon.receipt.entity;
 
 import com.example.hackathon.entity.User;
+import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.receipt.OcrStatus;
+import com.example.hackathon.receipt.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-
 
 @Getter @Setter
 @NoArgsConstructor @AllArgsConstructor @Builder
@@ -43,7 +44,7 @@ public class Receipt {
     @Column(nullable = false, length = 512)
     private String storagePath;
 
-    // 브라우저에서 바로 열 수 있는 URL (정적서빙/S3 쓰면 채움; 지금은 null 가능)
+    // 브라우저에서 바로 열 수 있는 URL
     @Column(length = 512)
     private String publicUrl;
 
@@ -52,13 +53,38 @@ public class Receipt {
     @Column(name = "ocr_status", nullable = false, length = 16)
     private OcrStatus ocrStatus;
 
-    // ---- OCR 결과(후속 단계에서 채움) ----
-    private String storeName;                 // 가게명
-    private Integer amount;                   // 결제금액(원)
-    private LocalDateTime purchaseAt;         // 결제시각
+    // OCR 결과
+    private String storeName;            // 가게명
+    private Integer amount;              // 결제금액(원)
+    private LocalDateTime purchaseAt;    // 결제시각
 
     @Lob
-    private String ocrRawJson;                // OCR 원문(JSON 문자열)
+    private String ocrRawJson;           // OCR 원문(JSON 문자열)
+
+
+    // 미션 요구 카테고리 스냅샷 (업로드 시 userMission.placeCategory를 복사)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "mission_place_category", length = 32)
+    private PlaceCategory missionPlaceCategory;
+
+    // OCR/룰/수동으로 판별된 실제 카테고리
+    @Enumerated(EnumType.STRING)
+    @Column(name = "detected_place_category", length = 32)
+    private PlaceCategory detectedPlaceCategory;
+
+    // 분류 신뢰도 (0~100) -> 백엔드 확인용으로만 둠
+    @Column(name = "detected_confidence")
+    private Integer detectedConfidence;
+
+    // 영수증 검증 상태: PENDING/MATCHED/REJECTED
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status", nullable = false, length = 16)
+    @Builder.Default
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+
+    // 검증 실패 사유(있을 때만)
+    @Column(name = "reject_reason", length = 255)
+    private String rejectReason;
 
     @CreationTimestamp
     @Column(updatable = false)
