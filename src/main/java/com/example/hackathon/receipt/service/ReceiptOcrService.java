@@ -75,7 +75,14 @@ public class ReceiptOcrService {
             // 5) JSON 파싱
             ReceiptParsed parsed = ReceiptOcrParser.parse(body);
 
-            // 6) 분류/검증까지 한 번에 처리
+            // 5-1) 주소 4종을 엔티티에 직접 반영 (트랜잭션 내라서 save 호출 없이도 flush 됨)
+            r.setStoreAddressFull(parsed.storeAddressFull());
+            r.setStoreAddressSiDo(parsed.storeAddressSiDo());
+            r.setStoreAddressGuGun(parsed.storeAddressGuGun());
+            r.setStoreAddressDong(parsed.storeAddressDong());
+            // (원하면 rawJson도 여기서 먼저 넣을 수 있지만, 아래 handleOcrSucceeded에서 저장하므로 생략)
+
+            // 6) 분류/검증까지 한 번에 처리 (상호/금액/결제시각/원문 JSON 저장)
             receiptService.handleOcrSucceeded(
                     receiptId,
                     parsed.storeName(),
