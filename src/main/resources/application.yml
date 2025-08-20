@@ -26,35 +26,11 @@ spring:
     secret: TEST_ONLY_SUPER_LONG_SECRET_KEY_AT_LEAST_32_BYTES_ABCDEFGH_1234567890
     access-token-validity-seconds: 7200
     
+    # 업로드 저장 루트 (배포할 때 변경할 곳)
+  upload:
+    base-dir: C:\Users\SamSung\OneDrive - inu.ac.kr\문서\대학교 강의자료\3학년 1학기\멋쟁이사자처럼 동아리\hackathon\receipts
 
-# spring:
-#   profiles:
-#     active: ${SPRING_PROFILES_ACTIVE:prod}
-
-# ---
-# spring:
-#   config:
-#     activate:
-#       on-profile: prod
-#   datasource:
-#     url: ${SPRING_DATASOURCE_URL}
-#     username: ${SPRING_DATASOURCE_USERNAME}
-#     password: ${SPRING_DATASOURCE_PASSWORD}
-#     driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:com.mysql.cj.jdbc.Driver}
-#   jpa:
-#     hibernate:
-#       ddl-auto: update
-
-# ---
-# spring:
-#   config:
-#     activate:
-#       on-profile: local
-#   datasource:
-#     url: jdbc:h2:mem:testdb
-#     driver-class-name: org.h2.Driver
-#     username: sa
-#     password:
-#   h2:
-#     console:
-#       enabled: true
+clova:
+  ocr:
+    url: "https://6ub5hbkrwr.apigw.ntruss.com/custom/v1/45351/052f462209b7ff5e6202c6210292b33d5591684185839f2274abeca506ce4dfb/general"
+    secret: "ZEtMUGZMenJ2TUFKTmJ5ck1JS2laaUxLeGRKcXNjSXc="

@@ -3,10 +3,12 @@ package com.example.hackathon.mission.controller;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.dto.CompleteRequest;
 import com.example.hackathon.mission.dto.MissionResponse;
+import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
 import com.example.hackathon.repository.UserRepository;
+import com.example.hackathon.service.CoinService;   // ✅ 추가
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ public class MissionController {
 
     private final MissionService missionService;
     private final UserRepository userRepository;
+    private final CoinService coinService;   // ✅ 추가
 
     private String resolveEmail(HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -43,7 +46,6 @@ public class MissionController {
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
     }
 
-
     // 맞춤 미션 목록 조회
     @GetMapping("/custom")
     public ResponseEntity<?> listCustomMissions(HttpServletRequest request) {
@@ -62,7 +64,6 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-
     // 특정 미션 상세 조회
     @GetMapping("/{id}")
     public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id){
@@ -70,7 +71,6 @@ public class MissionController {
         UserMission m = missionService.getUserMission(user, id);
         return ResponseEntity.ok(toDto(m));
     }
-
 
     // 미션 시작 (상태: READY -> IN_PROGRESS)
     @PostMapping("/{id}/start")
@@ -80,18 +80,23 @@ public class MissionController {
         return ResponseEntity.ok(toDto(m));
     }
 
-
-    // 미션 완료 (현재는 인증 방식만 체크, 추후 OCR/사진 확장 예정)
+    // 미션 완료 (PHOTO → 즉시 완료 / RECEIPT_OCR → receiptId 필요)
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeMission(HttpServletRequest request,
                                              @PathVariable Long id,
                                              @RequestBody(required = false) CompleteRequest body){
         User user = currentUser(request);
-        var type = body != null ? body.getVerificationType() : null;
-        UserMission m = missionService.complete(user, id, type);
+        Long receiptId = (body != null ? body.getReceiptId() : null);
+
+        UserMission m = missionService.completeAuto(user, id, receiptId);
+
+        // ✅ 미션이 COMPLETED 상태일 때만 코인 지급
+        if (m.getStatus() == MissionStatus.COMPLETED) {
+            coinService.addCoins(user, m.getRewardPoint());
+        }
+
         return ResponseEntity.ok(toDto(m));
     }
-
 
     // 미션 포기 (상태: IN_PROGRESS -> ABANDONED)
     @PostMapping("/{id}/abandon")

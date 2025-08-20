@@ -1,39 +1,57 @@
 package com.example.hackathon.mission.service;
 
 import com.example.hackathon.entity.User;
-import com.example.hackathon.mission.entity.*;
+import com.example.hackathon.mission.entity.MissionCategory;
+import com.example.hackathon.mission.entity.MissionStatus;
+import com.example.hackathon.mission.entity.PlaceCategory;
+import com.example.hackathon.mission.entity.UserMission;
+import com.example.hackathon.mission.entity.VerificationType;
 import com.example.hackathon.mission.repository.UserMissionRepository;
+import com.example.hackathon.receipt.OcrStatus;
+import com.example.hackathon.receipt.VerificationStatus;
+import com.example.hackathon.receipt.entity.Receipt;
+import com.example.hackathon.receipt.repository.ReceiptRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional
 public class MissionService {
 
     private final UserMissionRepository repo;
+    private final ReceiptRepository receiptRepository;
 
-    public MissionService(UserMissionRepository repo) { this.repo = repo; }
+    // 데모용: 기간 체크 X
+    @Value("${app.mission.verify.period:false}")
+    private boolean checkPeriod;
+
+    public MissionService(UserMissionRepository repo, ReceiptRepository receiptRepository) {
+        this.repo = repo;
+        this.receiptRepository = receiptRepository;
+    }
 
     // 카테고리별 템플릿 (맞춤 미션, 영수증 인증)
     private static final Map<PlaceCategory, Template> TPL = new EnumMap<>(PlaceCategory.class);
     static {
-        put(PlaceCategory.CAFE,               "카페에서 %s원 이상 결제하기",           3000, 200);
-        put(PlaceCategory.RESTAURANT,         "음식점에서 %s원 이상 결제하기",         7000, 250);
+        put(PlaceCategory.CAFE,               "카페에서 %s원 이상 결제하기",             3000, 200);
+        put(PlaceCategory.RESTAURANT,         "음식점에서 %s원 이상 결제하기",           7000, 250);
         put(PlaceCategory.MUSEUM,             "박물관/미술관 입장권 결제 영수증 인증하기", 3000, 250);
         put(PlaceCategory.LIBRARY,            "도서관(부대시설 포함) 결제 영수증 인증하기", 2000, 150);
         put(PlaceCategory.PARK,               "공원 나들이 후 간식/음료 영수증 인증하기", 2000, 150);
-        put(PlaceCategory.SPORTS_FACILITY,    "운동 시설 이용권 결제 영수증 인증하기",    10000, 200);
-        put(PlaceCategory.SHOPPING_MALL,      "쇼핑센터에서 %s원 이상 결제하기",        8000, 250);
-        put(PlaceCategory.TRADITIONAL_MARKET, "전통 시장에서 %s원 이상 결제하기",        5000, 250);
-        put(PlaceCategory.OTHER,              "주변 상점에서 %s원 이상 결제하기",        3000, 150);
+        put(PlaceCategory.SPORTS_FACILITY,    "운동 시설 이용권 결제 영수증 인증하기",      10000, 200);
+        put(PlaceCategory.SHOPPING_MALL,      "쇼핑센터에서 %s원 이상 결제하기",          8000, 250);
+        put(PlaceCategory.TRADITIONAL_MARKET, "전통 시장에서 %s원 이상 결제하기",          5000, 250);
+        put(PlaceCategory.OTHER,              "주변 상점에서 %s원 이상 결제하기",          3000, 150);
     }
     private static void put(PlaceCategory c, String p, int min, int r){ TPL.put(c, new Template(p,min,r)); }
     private record Template(String pattern, int minAmount, int rewardPoint) {}
-
 
     // 회원가입 직후 초기 맞춤 미션(3개) 생성 -> 없을 때만
     public void ensureInitialMissions(User user, List<PlaceCategory> prefs) {
@@ -84,18 +102,109 @@ public class MissionService {
         return m;
     }
 
-    // type 이 null 이거나 어떤 값이든, 지금은 실제 검증 없이 완료만 수행 -> 확장 에정
-    public UserMission complete(User user, Long missionId, VerificationType type) {
-        UserMission m = getUserMission(user, missionId);
 
+     // PHOTO       : 사진 업로드했다고 가정하고 즉시 완료
+     // RECEIPT_OCR : receiptId 필수, 영수증 검증 후 완료
+    public UserMission completeAuto(User user, Long missionId, Long receiptIdIfAny) {
+        UserMission m = getUserMission(user, missionId);
         if (m.getStatus() != MissionStatus.IN_PROGRESS) {
             throw new IllegalStateException("IN_PROGRESS 상태에서만 완료할 수 있습니다.");
         }
 
-        // TODO: 추후 type(RECEIPT_OCR/PHOTO/GPS 등)에 따라 실제 검증 로직 추가
+        VerificationType vt = m.getVerificationType();
+        if (vt == VerificationType.PHOTO) {
+            m.setStatus(MissionStatus.COMPLETED);
+            m.setCompletedAt(LocalDateTime.now());
+            return m;
+        }
+
+        if (vt == VerificationType.RECEIPT_OCR) {
+            if (receiptIdIfAny == null) {
+                throw new IllegalArgumentException("receiptId는 필수입니다. (영수증 인증 미션)");
+            }
+            return completeByReceipt(user, missionId, receiptIdIfAny);
+        }
+
+        throw new IllegalStateException("지원하지 않는 인증 방식입니다: " + vt);
+    }
+
+
+    public UserMission complete(User user, Long missionId, VerificationType type) {
+        UserMission m = getUserMission(user, missionId);
+        if (m.getStatus() != MissionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("IN_PROGRESS 상태에서만 완료할 수 있습니다.");
+        }
         m.setStatus(MissionStatus.COMPLETED);
         m.setCompletedAt(LocalDateTime.now());
         return m;
+    }
+
+    // 영수증 기반 완료
+    @Transactional
+    public UserMission completeByReceipt(User user, Long missionId, Long receiptId) {
+        // 1) 미션 소유/상태/유형 확인
+        UserMission m = getUserMission(user, missionId);
+        if (m.getStatus() != MissionStatus.IN_PROGRESS) {
+            throw new IllegalStateException("IN_PROGRESS 상태에서만 완료할 수 있습니다.");
+        }
+        if (m.getVerificationType() != VerificationType.RECEIPT_OCR) {
+            throw new IllegalStateException("이 미션은 영수증 인증 미션이 아닙니다.");
+        }
+
+        // 2) 영수증 로드 + 소유/소속 검증
+        Receipt r = receiptRepository.findById(receiptId)
+                .orElseThrow(() -> new IllegalArgumentException("영수증이 없습니다."));
+        if (r.getUser() == null || r.getUser().getId() == null ||
+                !r.getUser().getId().equals(user.getId())) {
+            throw new IllegalStateException("본인 영수증이 아닙니다.");
+        }
+        if (r.getUserMission() == null || !r.getUserMission().getId().equals(m.getId())) {
+            throw new IllegalStateException("해당 미션의 영수증이 아닙니다.");
+        }
+        if (r.getOcrStatus() != OcrStatus.SUCCEEDED) {
+            throw new IllegalStateException("OCR 처리가 완료되지 않았습니다.");
+        }
+
+        // 3) 규칙 평가: 카테고리 + 금액 (+기간은 데모에서는 옵션)
+        boolean categoryMatched =
+                (r.getDetectedPlaceCategory() != null && r.getDetectedPlaceCategory() == m.getPlaceCategory());
+
+        Integer amt = r.getAmount();
+        boolean amountSatisfied = (amt != null && amt >= m.getMinAmount());
+
+        // 데모에서는 기간 체크 비활성화(기본 false), 운영 전환 시 true
+        boolean inPeriod = !checkPeriod || isWithinPeriod(r.getPurchaseAt(), m.getStartDate(), m.getEndDate());
+
+        // 4) 결과 반영
+        if (categoryMatched && amountSatisfied && inPeriod) {
+            m.setStatus(MissionStatus.COMPLETED);
+            m.setCompletedAt(LocalDateTime.now());
+
+            // 성공 시에만 MATCHED로 보정(선택) — 이미 MATCHED면 그대로.
+            if (r.getVerificationStatus() != VerificationStatus.MATCHED) {
+                r.setVerificationStatus(VerificationStatus.MATCHED);
+                r.setRejectReason(null);
+            }
+        } else {
+            String reason = String.format(
+                    "categoryMatched=%s, amountSatisfied=%s, inPeriod=%s (detected=%s, mission=%s, amt=%s/%s, purchaseAt=%s, periodCheck=%s)",
+                    categoryMatched, amountSatisfied, inPeriod,
+                    String.valueOf(r.getDetectedPlaceCategory()), m.getPlaceCategory(),
+                    String.valueOf(amt), String.valueOf(m.getMinAmount()),
+                    String.valueOf(r.getPurchaseAt()), checkPeriod
+            );
+            throw new IllegalStateException("VERIFICATION_FAILED: " + reason);
+        }
+
+        return m;
+    }
+
+    private boolean isWithinPeriod(LocalDateTime purchaseAt, LocalDate start, LocalDate end) {
+        if (purchaseAt == null) return true; // 날짜 없으면 패스(데모 편의)
+        LocalDate d = purchaseAt.toLocalDate();
+        boolean afterOrEqStart = (start == null) || !d.isBefore(start);
+        boolean beforeOrEqEnd  = (end == null)   || !d.isAfter(end);
+        return afterOrEqStart && beforeOrEqEnd;
     }
 
     public UserMission abandon(User user, Long missionId) {
@@ -106,6 +215,4 @@ public class MissionService {
         m.setStatus(MissionStatus.ABANDONED);
         return m;
     }
-
-
 }
