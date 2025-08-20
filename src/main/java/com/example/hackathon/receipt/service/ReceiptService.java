@@ -100,7 +100,7 @@ public class ReceiptService {
                 .storagePath(savePath.toAbsolutePath().toString().replace("\\", "/")) // 내부용
                 .publicUrl(publicUrl)  // 배포면 실제 URL, 로컬이면 null
                 .ocrStatus(OcrStatus.PENDING)
-                // ✅ 스냅샷 & 초기 검증상태
+                // 스냅샷 & 초기 검증상태
                 .missionPlaceCategory(userMission.getPlaceCategory())
                 .verificationStatus(VerificationStatus.PENDING)
                 .build();

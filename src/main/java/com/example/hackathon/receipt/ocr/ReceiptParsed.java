@@ -4,8 +4,11 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public record ReceiptParsed(
-        String storeName, // 업체명
-        String storeAddress, // 업체 주소
-        LocalDateTime paidAt, // 결제 일시
-        BigDecimal totalAmount // 합계 금액
+        String storeName,          // 업체명
+        String storeAddressFull,   // 업체 전체 주소
+        String storeAddressSiDo,   // 시/도
+        String storeAddressGuGun,  // 구/군
+        String storeAddressDong,   // 동
+        LocalDateTime paidAt,      // 결제 일시
+        BigDecimal totalAmount     // 합계 금액
 ) {}
