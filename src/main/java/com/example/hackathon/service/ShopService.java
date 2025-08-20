@@ -5,16 +5,21 @@ import com.example.hackathon.common.InsufficientBalanceException;
 import com.example.hackathon.common.NotFoundException;
 import com.example.hackathon.dto.BackgroundDTO;
 import com.example.hackathon.dto.CharacterInfoDTO;
+import com.example.hackathon.dto.SkinDTO;
 import com.example.hackathon.dto.ShopOverviewDTO;
 import com.example.hackathon.entity.Background;
 import com.example.hackathon.entity.CharacterEntity;
 import com.example.hackathon.entity.CharacterLevelRequirement;
+import com.example.hackathon.entity.CharacterSkin;
 import com.example.hackathon.entity.UserBackground;
+import com.example.hackathon.entity.UserSkin;
 import com.example.hackathon.repository.BackgroundRepository;
 import com.example.hackathon.repository.CharacterRepository;
+import com.example.hackathon.repository.CharacterSkinRepository;
 import com.example.hackathon.repository.CoinsRepository;
 import com.example.hackathon.repository.LevelReqRepository;
 import com.example.hackathon.repository.UserBackgroundRepository;
+import com.example.hackathon.repository.UserSkinRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,123 +37,52 @@ public class ShopService {
   private final LevelReqRepository levelRepo;
   private final CoinsRepository coinsRepo;
 
+  // 스킨
+  private final CharacterSkinRepository skinRepo;
+  private final UserSkinRepository userSkinRepo;
+
   private static final int FEED_COST = 100; // 먹이 1회 = 100코인
 
-  // 2^L - 1 (L은 현재 레벨), 안전하게 long 비트시프트
+  // -------------------- 유틸 --------------------
   private int feedsRequiredFormula(int level) {
     if (level <= 0 || level > 30) throw new IllegalArgumentException("level out of range");
-    return (int) ((1L << level) - 1L);
+    return (int) ((1L << level) - 1L); // 2^L - 1
   }
 
-  // override(있으면) 우선, 없으면 공식(2^L - 1)
   private int feedsRequired(int level) {
     return levelRepo.findById(level)
-        .map(CharacterLevelRequirement::getFeedsRequired)
-        .orElseGet(() -> feedsRequiredFormula(level));
+            .map(CharacterLevelRequirement::getFeedsRequired)
+            .orElseGet(() -> feedsRequiredFormula(level));
   }
 
-  /** 상점 상단 정보 */
+  private BackgroundDTO toBackgroundDTO(Background b, boolean owned, boolean active) {
+    return new BackgroundDTO(b.getId(), b.getName(), b.getPriceCoins(), owned, active);
+  }
+
+  private SkinDTO toSkinDTO(CharacterSkin s, boolean owned, boolean active) {
+    return new SkinDTO(s.getId(), s.getName(), s.getPriceCoins(), owned, active);
+  }
+
+  // -------------------- 상단 개요/캐릭터 --------------------
   @Transactional(readOnly = true)
   public ShopOverviewDTO getOverview(Integer userId) {
     CharacterEntity ch = characterRepo.findByUserId(userId)
-        .orElseThrow(() -> new NotFoundException("character"));
+            .orElseThrow(() -> new NotFoundException("character"));
     int required = feedsRequired(ch.getLevel());
     int toNext = Math.max(0, required - ch.getFeedProgress());
     return new ShopOverviewDTO(
-        new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId())
+            new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId())
     );
   }
 
-  /** 판매 중 배경 목록 (+내 보유/활성 여부) */
-  @Transactional(readOnly = true)
-  public List<BackgroundDTO> listBackgrounds(Integer userId) {
-    Set<Long> owned = userBgRepo.findByUserId(userId).stream()
-        .map(UserBackground::getBackgroundId)
-        .collect(Collectors.toSet());
-
-    Long activeBg = characterRepo.findByUserId(userId)
-        .map(CharacterEntity::getActiveBackgroundId)
-        .orElse(null);
-
-    return backgroundRepo.findAllActive().stream()
-        .map(b -> new BackgroundDTO(
-            b.getId(), b.getName(), b.getPriceCoins(),
-            owned.contains(b.getId()), Objects.equals(activeBg, b.getId())
-        ))
-        .collect(Collectors.toList());
-  }
-
-  /** 내가 소유한 배경 목록 (+활성 여부) */
-  @Transactional(readOnly = true)
-  public List<BackgroundDTO> listInventory(Integer userId) {
-    Long activeBg = characterRepo.findByUserId(userId)
-        .map(CharacterEntity::getActiveBackgroundId)
-        .orElse(null);
-
-    // 보유 ID 모아서 한 번에 카탈로그 로딩
-    List<Long> ownedIds = userBgRepo.findByUserId(userId).stream()
-        .map(UserBackground::getBackgroundId)
-        .collect(Collectors.toList());
-
-    Map<Long, Background> catalog = backgroundRepo.findAllById(ownedIds).stream()
-        .collect(Collectors.toMap(Background::getId, it -> it));
-
-    return ownedIds.stream()
-        .map(id -> {
-          Background b = catalog.get(id);
-          return new BackgroundDTO(
-              b.getId(), b.getName(), b.getPriceCoins(),
-              true, Objects.equals(activeBg, b.getId())
-          );
-        })
-        .collect(Collectors.toList());
-  }
-
-  /** 배경 구매(코인 즉시 차감, 환불 없음) */
-  @Transactional
-  public void purchaseBackground(Integer userId, Long backgroundId) {
-    Background bg = backgroundRepo.findById(backgroundId)
-        .filter(Background::getIsActive)
-        .orElseThrow(() -> new NotFoundException("background"));
-
-    // 이미 보유 시 no-op (정책에 따라 409로 바꿔도 됨)
-    if (userBgRepo.existsByUserIdAndBackgroundId(userId, backgroundId)) return;
-
-    // 코인 조건부 차감 (원자적)
-    int updated = coinsRepo.tryDeduct(userId, bg.getPriceCoins());
-    if (updated == 0) throw new InsufficientBalanceException();
-
-    // 소유권 등록
-    UserBackground ub = new UserBackground();
-    ub.setUserId(userId);
-    ub.setBackgroundId(backgroundId);
-    userBgRepo.save(ub);
-  }
-
-  /** 보유 배경 활성화 */
-  @Transactional
-  public void activateBackground(Integer userId, Long backgroundId) {
-    userBgRepo.findByUserIdAndBackgroundId(userId, backgroundId)
-        .orElseThrow(() -> new ForbiddenException("not owned"));
-
-    CharacterEntity ch = characterRepo.findByUserId(userId)
-        .orElseThrow(() -> new NotFoundException("character"));
-
-    ch.setActiveBackgroundId(backgroundId);
-    characterRepo.save(ch);
-  }
-
-  /** 먹이 1회(100코인 차감 → 진행 +1 → 필요 시 레벨업) */
   @Transactional
   public CharacterInfoDTO feedOnce(Integer userId) {
-    // 1) 코인 차감 (환불 없음)
     if (coinsRepo.tryDeduct(userId, FEED_COST) == 0) {
       throw new InsufficientBalanceException();
     }
 
-    // 2) 진행 업데이트 + 레벨업
     CharacterEntity ch = characterRepo.findByUserId(userId)
-        .orElseThrow(() -> new NotFoundException("character"));
+            .orElseThrow(() -> new NotFoundException("character"));
 
     int required = feedsRequired(ch.getLevel());
     int progress = ch.getFeedProgress() + 1;
@@ -166,7 +100,6 @@ public class ShopService {
     return new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId());
   }
 
-  // ShopService.java
   @Transactional(readOnly = true)
   public CharacterInfoDTO getCharacterInfo(Integer userId) {
     CharacterEntity ch = characterRepo.findByUserId(userId)
@@ -174,13 +107,172 @@ public class ShopService {
 
     int required = feedsRequired(ch.getLevel());
     int toNext = Math.max(0, required - ch.getFeedProgress());
-
-    return new CharacterInfoDTO(
-            ch.getLevel(),
-            ch.getFeedProgress(),
-            toNext,
-            ch.getActiveBackgroundId()
-    );
+    return new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId());
   }
 
+  // -------------------- 배경 --------------------
+  @Transactional(readOnly = true)
+  public List<BackgroundDTO> listBackgrounds(Integer userId) {
+    Set<Long> owned = userBgRepo.findByUserId(userId).stream()
+            .map(UserBackground::getBackgroundId)
+            .collect(Collectors.toSet());
+
+    Long activeBg = characterRepo.findByUserId(userId)
+            .map(CharacterEntity::getActiveBackgroundId)
+            .orElse(null);
+
+    return backgroundRepo.findAllActive().stream()
+            .map(b -> toBackgroundDTO(b, owned.contains(b.getId()), Objects.equals(activeBg, b.getId())))
+            .collect(Collectors.toList());
+  }
+
+  @Transactional(readOnly = true)
+  public List<BackgroundDTO> listInventory(Integer userId) {
+    Long activeBg = characterRepo.findByUserId(userId)
+            .map(CharacterEntity::getActiveBackgroundId)
+            .orElse(null);
+
+    List<Long> ownedIds = userBgRepo.findByUserId(userId).stream()
+            .map(UserBackground::getBackgroundId)
+            .collect(Collectors.toList());
+
+    Map<Long, Background> catalog = backgroundRepo.findAllById(ownedIds).stream()
+            .collect(Collectors.toMap(Background::getId, it -> it));
+
+    return ownedIds.stream()
+            .map(id -> {
+              Background b = catalog.get(id);
+              return toBackgroundDTO(b, true, Objects.equals(activeBg, b.getId()));
+            })
+            .collect(Collectors.toList());
+  }
+
+  /** 배경 구매 → 성공 시 BackgroundDTO 반환 */
+  @Transactional
+  public BackgroundDTO purchaseBackground(Integer userId, Long backgroundId) {
+    Background bg = backgroundRepo.findById(backgroundId)
+            .filter(Background::getIsActive)
+            .orElseThrow(() -> new NotFoundException("background"));
+
+    Long activeBg = characterRepo.findByUserId(userId)
+            .map(CharacterEntity::getActiveBackgroundId)
+            .orElse(null);
+
+    // 이미 보유면 idempotent: 그대로 DTO 반환
+    if (userBgRepo.existsByUserIdAndBackgroundId(userId, backgroundId)) {
+      return toBackgroundDTO(bg, true, Objects.equals(activeBg, bg.getId()));
+    }
+
+    if (coinsRepo.tryDeduct(userId, bg.getPriceCoins()) == 0) {
+      throw new InsufficientBalanceException();
+    }
+
+    UserBackground ub = new UserBackground();
+    ub.setUserId(userId);
+    ub.setBackgroundId(backgroundId);
+    userBgRepo.save(ub);
+
+    return toBackgroundDTO(bg, true, Objects.equals(activeBg, bg.getId()));
+  }
+
+  /** 보유 배경 활성화 → 성공 시 BackgroundDTO 반환 */
+  @Transactional
+  public BackgroundDTO activateBackground(Integer userId, Long backgroundId) {
+    userBgRepo.findByUserIdAndBackgroundId(userId, backgroundId)
+            .orElseThrow(() -> new ForbiddenException("not owned"));
+
+    CharacterEntity ch = characterRepo.findByUserId(userId)
+            .orElseThrow(() -> new NotFoundException("character"));
+
+    ch.setActiveBackgroundId(backgroundId);
+    characterRepo.save(ch);
+
+    Background bg = backgroundRepo.findById(backgroundId)
+            .orElseThrow(() -> new NotFoundException("background"));
+
+    return new BackgroundDTO(bg.getId(), bg.getName(), bg.getPriceCoins(), true, true);
+  }
+
+  // -------------------- 스킨(캐릭터) --------------------
+  @Transactional(readOnly = true)
+  public List<SkinDTO> listSkins(Integer userId) {
+    Set<Long> owned = userSkinRepo.findByUserId(userId).stream()
+            .map(UserSkin::getSkinId)
+            .collect(Collectors.toSet());
+
+    Long activeSkin = characterRepo.findByUserId(userId)
+            .map(CharacterEntity::getActiveSkinId)
+            .orElse(null);
+
+    return skinRepo.findAllActive().stream()
+            .map(s -> toSkinDTO(s, owned.contains(s.getId()), Objects.equals(activeSkin, s.getId())))
+            .collect(Collectors.toList());
+  }
+
+  @Transactional(readOnly = true)
+  public List<SkinDTO> listSkinInventory(Integer userId) {
+    Long activeSkin = characterRepo.findByUserId(userId)
+            .map(CharacterEntity::getActiveSkinId)
+            .orElse(null);
+
+    List<Long> ownedIds = userSkinRepo.findByUserId(userId).stream()
+            .map(UserSkin::getSkinId)
+            .collect(Collectors.toList());
+
+    Map<Long, CharacterSkin> catalog = skinRepo.findAllById(ownedIds).stream()
+            .collect(Collectors.toMap(CharacterSkin::getId, it -> it));
+
+    return ownedIds.stream()
+            .map(id -> {
+              CharacterSkin s = catalog.get(id);
+              return toSkinDTO(s, true, Objects.equals(activeSkin, s.getId()));
+            })
+            .collect(Collectors.toList());
+  }
+
+  /** 스킨 구매 → 성공 시 SkinDTO 반환 */
+  @Transactional
+  public SkinDTO purchaseSkin(Integer userId, Long skinId) {
+    CharacterSkin skin = skinRepo.findById(skinId)
+            .filter(CharacterSkin::getIsActive)
+            .orElseThrow(() -> new NotFoundException("skin"));
+
+    Long activeSkin = characterRepo.findByUserId(userId)
+            .map(CharacterEntity::getActiveSkinId)
+            .orElse(null);
+
+    // 이미 보유면 idempotent: 그대로 DTO 반환
+    if (userSkinRepo.existsByUserIdAndSkinId(userId, skinId)) {
+      return toSkinDTO(skin, true, Objects.equals(activeSkin, skin.getId()));
+    }
+
+    if (coinsRepo.tryDeduct(userId, skin.getPriceCoins()) == 0) {
+      throw new InsufficientBalanceException();
+    }
+
+    UserSkin us = new UserSkin();
+    us.setUserId(userId);
+    us.setSkinId(skinId);
+    userSkinRepo.save(us);
+
+    return toSkinDTO(skin, true, Objects.equals(activeSkin, skin.getId()));
+  }
+
+  /** 보유 스킨 활성화 → 성공 시 SkinDTO 반환 */
+  @Transactional
+  public SkinDTO activateSkin(Integer userId, Long skinId) {
+    userSkinRepo.findByUserIdAndSkinId(userId, skinId)
+            .orElseThrow(() -> new ForbiddenException("not owned"));
+
+    CharacterEntity ch = characterRepo.findByUserId(userId)
+            .orElseThrow(() -> new NotFoundException("character"));
+
+    ch.setActiveSkinId(skinId);
+    characterRepo.save(ch);
+
+    CharacterSkin skin = skinRepo.findById(skinId)
+            .orElseThrow(() -> new NotFoundException("skin"));
+
+    return new SkinDTO(skin.getId(), skin.getName(), skin.getPriceCoins(), true, true);
+  }
 }
