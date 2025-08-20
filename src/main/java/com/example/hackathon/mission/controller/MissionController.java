@@ -3,10 +3,12 @@ package com.example.hackathon.mission.controller;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.dto.CompleteRequest;
 import com.example.hackathon.mission.dto.MissionResponse;
+import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
 import com.example.hackathon.repository.UserRepository;
+import com.example.hackathon.service.CoinService;   // ✅ 추가
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,7 @@ public class MissionController {
 
     private final MissionService missionService;
     private final UserRepository userRepository;
+    private final CoinService coinService;   // ✅ 추가
 
     private String resolveEmail(HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -77,16 +80,21 @@ public class MissionController {
         return ResponseEntity.ok(toDto(m));
     }
 
-
-     // 미션.verificationType == PHOTO     -> 사진 업로드 가정, 즉시 완료
-     // 미션.verificationType == RECEIPT_OCR -> body.receiptId 필수, 영수증 검증 후 완료
+    // 미션 완료 (PHOTO → 즉시 완료 / RECEIPT_OCR → receiptId 필요)
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeMission(HttpServletRequest request,
                                              @PathVariable Long id,
                                              @RequestBody(required = false) CompleteRequest body){
         User user = currentUser(request);
         Long receiptId = (body != null ? body.getReceiptId() : null);
+
         UserMission m = missionService.completeAuto(user, id, receiptId);
+
+        // ✅ 미션이 COMPLETED 상태일 때만 코인 지급
+        if (m.getStatus() == MissionStatus.COMPLETED) {
+            coinService.addCoins(user, m.getRewardPoint());
+        }
+
         return ResponseEntity.ok(toDto(m));
     }
 
