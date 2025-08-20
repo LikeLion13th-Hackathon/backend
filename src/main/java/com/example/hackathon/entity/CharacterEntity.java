@@ -29,4 +29,7 @@ public class CharacterEntity {
   // backgrounds.background_id = BIGINT
   @Column(name = "active_background_id")
   private Long activeBackgroundId;
+
+  @Column(name = "active_skin_id")
+  private Long activeSkinId;
 }
