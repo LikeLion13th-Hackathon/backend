@@ -43,7 +43,6 @@ public class MissionController {
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
     }
 
-
     // 맞춤 미션 목록 조회
     @GetMapping("/custom")
     public ResponseEntity<?> listCustomMissions(HttpServletRequest request) {
@@ -62,7 +61,6 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-
     // 특정 미션 상세 조회
     @GetMapping("/{id}")
     public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id){
@@ -70,7 +68,6 @@ public class MissionController {
         UserMission m = missionService.getUserMission(user, id);
         return ResponseEntity.ok(toDto(m));
     }
-
 
     // 미션 시작 (상태: READY -> IN_PROGRESS)
     @PostMapping("/{id}/start")
@@ -81,17 +78,17 @@ public class MissionController {
     }
 
 
-    // 미션 완료 (현재는 인증 방식만 체크, 추후 OCR/사진 확장 예정)
+     // 미션.verificationType == PHOTO     -> 사진 업로드 가정, 즉시 완료
+     // 미션.verificationType == RECEIPT_OCR -> body.receiptId 필수, 영수증 검증 후 완료
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeMission(HttpServletRequest request,
                                              @PathVariable Long id,
                                              @RequestBody(required = false) CompleteRequest body){
         User user = currentUser(request);
-        var type = body != null ? body.getVerificationType() : null;
-        UserMission m = missionService.complete(user, id, type);
+        Long receiptId = (body != null ? body.getReceiptId() : null);
+        UserMission m = missionService.completeAuto(user, id, receiptId);
         return ResponseEntity.ok(toDto(m));
     }
-
 
     // 미션 포기 (상태: IN_PROGRESS -> ABANDONED)
     @PostMapping("/{id}/abandon")
