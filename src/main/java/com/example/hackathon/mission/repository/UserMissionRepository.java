@@ -2,6 +2,7 @@ package com.example.hackathon.mission.repository;
 
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.entity.MissionCategory;
+import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,4 +28,10 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
 
     // 추가: 단건 상세도 category로 검증
     Optional<UserMission> findByIdAndUserAndCategory(Long id, User user, MissionCategory category);
+
+    // 최근 완료 N건의 placeCategory만 뽑기 위함
+    long countByUserAndStatus(User user, MissionStatus status);
+
+    List<UserMission> findTop20ByUserAndStatusOrderByCompletedAtDesc(
+            User user, MissionStatus status);
 }

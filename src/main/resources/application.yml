@@ -34,3 +34,6 @@ clova:
   ocr:
     url: "https://6ub5hbkrwr.apigw.ntruss.com/custom/v1/45351/052f462209b7ff5e6202c6210292b33d5591684185839f2274abeca506ce4dfb/general"
     secret: "ZEtMUGZMenJ2TUFKTmJ5ck1JS2laaUxLeGRKcXNjSXc="
+
+gemini:
+  api-key: ${GEMINI_API_KEY:AIzaSyBlewi4rBZktO7GVotzpypfWYkvIqSOioE}

@@ -3,6 +3,7 @@ package com.example.hackathon.mission.controller;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.dto.CompleteRequest;
 import com.example.hackathon.mission.dto.MissionResponse;
+import com.example.hackathon.mission.entity.MissionCategory;   // ✅ 변경: CUSTOM 상수 사용을 위해 import
 import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
@@ -17,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Comparator;                       // ✅ 변경: 정렬용
 import java.util.List;
 
 @RestController
@@ -59,8 +61,15 @@ public class MissionController {
 
         missionService.ensureInitialMissions(user, prefs);
 
+        // ✅ 변경: 혹시 레포지토리에서 섞여 들어오는 것을 방지하기 위해
+        //         컨트롤러 레벨에서도 한 번 더 CUSTOM만 필터링 + 생성일 오름차순 정렬
         List<UserMission> list = missionService.listCustomMissions(user);
-        var res = list.stream().map(MissionController::toDto).toList();
+        var res = list.stream()
+                .filter(m -> m.getCategory() == MissionCategory.CUSTOM)          // ✅ 변경
+                .sorted(Comparator.comparing(UserMission::getCreatedAt))         // ✅ 변경(안전 정렬)
+                .map(MissionController::toDto)
+                .toList();
+
         return ResponseEntity.ok(res);
     }
 

@@ -28,13 +28,22 @@ public class MissionService {
     private final UserMissionRepository repo;
     private final ReceiptRepository receiptRepository;
 
+    // AI 의존성
+    private final com.example.hackathon.ai_custom.service.AiRecommendationService aiRecommendationService;
+    private final com.example.hackathon.ai_custom.service.AiCustomMissionIssuer aiCustomMissionIssuer;
+
     // 데모용: 기간 체크 X
     @Value("${app.mission.verify.period:false}")
     private boolean checkPeriod;
 
-    public MissionService(UserMissionRepository repo, ReceiptRepository receiptRepository) {
+    public MissionService(UserMissionRepository repo,
+                          ReceiptRepository receiptRepository,
+                          com.example.hackathon.ai_custom.service.AiRecommendationService aiRecommendationService,
+                          com.example.hackathon.ai_custom.service.AiCustomMissionIssuer aiCustomMissionIssuer) {
         this.repo = repo;
         this.receiptRepository = receiptRepository;
+        this.aiRecommendationService = aiRecommendationService;
+        this.aiCustomMissionIssuer = aiCustomMissionIssuer;
     }
 
     // 카테고리별 템플릿 (맞춤 미션, 영수증 인증)
@@ -71,7 +80,7 @@ public class MissionService {
                     .placeCategory(p)
                     .title(title)
                     .description(desc)
-                    .verificationType(VerificationType.RECEIPT_OCR) // 초기 규칙
+                    .verificationType(VerificationType.RECEIPT_OCR)
                     .minAmount(t.minAmount())
                     .rewardPoint(t.rewardPoint())
                     .status(MissionStatus.READY)
@@ -102,9 +111,7 @@ public class MissionService {
         return m;
     }
 
-
-     // PHOTO       : 사진 업로드했다고 가정하고 즉시 완료
-     // RECEIPT_OCR : receiptId 필수, 영수증 검증 후 완료
+    // PHOTO: 즉시 완료 / RECEIPT_OCR: receiptId 필요
     public UserMission completeAuto(User user, Long missionId, Long receiptIdIfAny) {
         UserMission m = getUserMission(user, missionId);
         if (m.getStatus() != MissionStatus.IN_PROGRESS) {
@@ -115,6 +122,7 @@ public class MissionService {
         if (vt == VerificationType.PHOTO) {
             m.setStatus(MissionStatus.COMPLETED);
             m.setCompletedAt(LocalDateTime.now());
+            maybeTriggerAi(user); // ✅ 트리거
             return m;
         }
 
@@ -122,12 +130,13 @@ public class MissionService {
             if (receiptIdIfAny == null) {
                 throw new IllegalArgumentException("receiptId는 필수입니다. (영수증 인증 미션)");
             }
-            return completeByReceipt(user, missionId, receiptIdIfAny);
+            UserMission done = completeByReceipt(user, missionId, receiptIdIfAny);
+            maybeTriggerAi(user); // ✅ 트리거
+            return done;
         }
 
         throw new IllegalStateException("지원하지 않는 인증 방식입니다: " + vt);
     }
-
 
     public UserMission complete(User user, Long missionId, VerificationType type) {
         UserMission m = getUserMission(user, missionId);
@@ -136,13 +145,13 @@ public class MissionService {
         }
         m.setStatus(MissionStatus.COMPLETED);
         m.setCompletedAt(LocalDateTime.now());
+        maybeTriggerAi(user); // ✅ 트리거
         return m;
     }
 
     // 영수증 기반 완료
     @Transactional
     public UserMission completeByReceipt(User user, Long missionId, Long receiptId) {
-        // 1) 미션 소유/상태/유형 확인
         UserMission m = getUserMission(user, missionId);
         if (m.getStatus() != MissionStatus.IN_PROGRESS) {
             throw new IllegalStateException("IN_PROGRESS 상태에서만 완료할 수 있습니다.");
@@ -151,7 +160,6 @@ public class MissionService {
             throw new IllegalStateException("이 미션은 영수증 인증 미션이 아닙니다.");
         }
 
-        // 2) 영수증 로드 + 소유/소속 검증
         Receipt r = receiptRepository.findById(receiptId)
                 .orElseThrow(() -> new IllegalArgumentException("영수증이 없습니다."));
         if (r.getUser() == null || r.getUser().getId() == null ||
@@ -165,22 +173,18 @@ public class MissionService {
             throw new IllegalStateException("OCR 처리가 완료되지 않았습니다.");
         }
 
-        // 3) 규칙 평가: 카테고리 + 금액 (+기간은 데모에서는 옵션)
         boolean categoryMatched =
                 (r.getDetectedPlaceCategory() != null && r.getDetectedPlaceCategory() == m.getPlaceCategory());
 
         Integer amt = r.getAmount();
         boolean amountSatisfied = (amt != null && amt >= m.getMinAmount());
 
-        // 데모에서는 기간 체크 비활성화(기본 false), 운영 전환 시 true
         boolean inPeriod = !checkPeriod || isWithinPeriod(r.getPurchaseAt(), m.getStartDate(), m.getEndDate());
 
-        // 4) 결과 반영
         if (categoryMatched && amountSatisfied && inPeriod) {
             m.setStatus(MissionStatus.COMPLETED);
             m.setCompletedAt(LocalDateTime.now());
 
-            // 성공 시에만 MATCHED로 보정(선택) — 이미 MATCHED면 그대로.
             if (r.getVerificationStatus() != VerificationStatus.MATCHED) {
                 r.setVerificationStatus(VerificationStatus.MATCHED);
                 r.setRejectReason(null);
@@ -200,7 +204,7 @@ public class MissionService {
     }
 
     private boolean isWithinPeriod(LocalDateTime purchaseAt, LocalDate start, LocalDate end) {
-        if (purchaseAt == null) return true; // 날짜 없으면 패스(데모 편의)
+        if (purchaseAt == null) return true;
         LocalDate d = purchaseAt.toLocalDate();
         boolean afterOrEqStart = (start == null) || !d.isBefore(start);
         boolean beforeOrEqEnd  = (end == null)   || !d.isAfter(end);
@@ -214,5 +218,23 @@ public class MissionService {
         }
         m.setStatus(MissionStatus.ABANDONED);
         return m;
+    }
+
+    // === AI 트리거 ===
+    private void maybeTriggerAi(User user) {
+        try {
+            long done = repo.countByUserAndStatus(user, MissionStatus.COMPLETED);
+            if (done > 0 && done % 3 == 0) {
+                var recent = repo.findTop20ByUserAndStatusOrderByCompletedAtDesc(user, MissionStatus.COMPLETED)
+                                 .stream()
+                                 .map(UserMission::getPlaceCategory)
+                                 .toList();
+                var recs = aiRecommendationService.recommendPlaces(user, recent);
+                aiCustomMissionIssuer.refreshAiCustomMissions(user, recs);
+            }
+        } catch (Exception e) {
+            // AI 실패는 완료 흐름을 막지 않음(로그만 권장)
+            // log.warn("AI trigger failed for user {}", user.getId(), e);
+        }
     }
 }
