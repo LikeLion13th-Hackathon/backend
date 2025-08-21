@@ -1,4 +1,4 @@
-package com.example.hackathon.mypage.controller;
+package com.example.hackathon.controller;
 
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
