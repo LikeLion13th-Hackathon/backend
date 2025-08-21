@@ -62,3 +62,4 @@ tasks.named('test') {
 tasks.named('bootJar') {
 	archiveFileName = "app-${System.currentTimeMillis()}.jar"
 }
+
