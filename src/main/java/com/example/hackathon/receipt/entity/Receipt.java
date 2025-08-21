@@ -54,27 +54,13 @@ public class Receipt {
     private OcrStatus ocrStatus;
 
     // OCR 결과
-    @Column(length = 255)
     private String storeName;            // 가게명
-
     private Integer amount;              // 결제금액(원)
     private LocalDateTime purchaseAt;    // 결제시각
 
-    // 주소 (Full/시도/구군/동)
-    @Column(name = "store_address_full", length = 255)
-    private String storeAddressFull;
-
-    @Column(name = "store_address_sido", length = 50)
-    private String storeAddressSiDo;
-
-    @Column(name = "store_address_gugun", length = 50)
-    private String storeAddressGuGun;
-
-    @Column(name = "store_address_dong", length = 50)
-    private String storeAddressDong;
-
     @Lob
     private String ocrRawJson;           // OCR 원문(JSON 문자열)
+
 
     // 미션 요구 카테고리 스냅샷 (업로드 시 userMission.placeCategory를 복사)
     @Enumerated(EnumType.STRING)

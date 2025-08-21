@@ -1,19 +1,20 @@
 // src/main/java/com/example/hackathon/controller/HomeCardController.java
 package com.example.hackathon.controller;
 
-import com.example.hackathon.dto.home.HomeCardDTO;
+import com.example.hackathon.dto.home.*;
+import com.example.hackathon.entity.User;
+import com.example.hackathon.mission.entity.UserMission;
+import com.example.hackathon.mission.service.MissionService;
+import com.example.hackathon.repository.UserRepository;
 import com.example.hackathon.security.JwtTokenProvider;
 import com.example.hackathon.service.HomeCardService;
 import io.jsonwebtoken.Claims;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.Jwts;
-
-import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/home")
@@ -21,10 +22,12 @@ import jakarta.servlet.http.HttpServletRequest;
 public class HomeCardController {
 
     private final HomeCardService homeCardService;
+    private final MissionService missionService;
+    private final UserRepository userRepository;
     private final JwtTokenProvider jwtTokenProvider;
 
-    @GetMapping("/card")
-    public ResponseEntity<HomeCardDTO> getHomeCard(HttpServletRequest request) {
+    @GetMapping
+    public ResponseEntity<HomeCardResponseDTO> getHome(HttpServletRequest request) {
         // 1) Authorization 헤더에서 Bearer 토큰 추출
         String authHeader = request.getHeader("Authorization");
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
@@ -41,9 +44,30 @@ public class HomeCardController {
         Claims claims = jwtTokenProvider.parseClaims(token);
         String email = claims.getSubject();
 
-        // 4) 서비스 호출
-        HomeCardDTO dto = homeCardService.getCardByEmail(email);
+        // 4) 유저 조회
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
 
-        return ResponseEntity.ok(dto);
+        // 5) 홈카드 정보
+        HomeCardDTO homeCard = homeCardService.getCardByEmail(email);
+
+        // 6) 랜덤 미션 3개 뽑기
+        List<HomeCardMissionDTO> missions = missionService.getHomeMissions().stream()
+                .map(m -> HomeCardMissionDTO.builder()
+                        .id(m.getId())
+                        .category(m.getCategory())
+                        .title(m.getTitle())
+                        .description(m.getDescription())
+                        .rewardPoint(m.getRewardPoint())
+                        .build())
+                .toList();
+
+        // 7) 최종 응답 DTO
+        HomeCardResponseDTO response = HomeCardResponseDTO.builder()
+                .homeCard(homeCard)
+                .missions(missions)
+                .build();
+
+        return ResponseEntity.ok(response);
     }
 }

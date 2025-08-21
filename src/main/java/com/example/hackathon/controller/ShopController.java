@@ -6,10 +6,12 @@ import com.example.hackathon.dto.CharacterInfoDTO;
 import com.example.hackathon.dto.SkinDTO;
 import com.example.hackathon.dto.ShopOverviewDTO;
 import com.example.hackathon.service.ShopService;
+import com.example.hackathon.service.CoinService;   // ← 추가
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;                                // ← 추가
 
 @RestController
 @RequestMapping("/shop")
@@ -17,6 +19,7 @@ import java.util.List;
 public class ShopController {
 
     private final ShopService shopService;
+    private final CoinService coinService;         // ← 추가
 
     // TODO: 실제 서비스에선 @AuthenticationPrincipal 사용
     private Integer currentUserId() { return 1; }
@@ -26,6 +29,15 @@ public class ShopController {
         return shopService.getOverview(currentUserId());
     }
 
+    // ===== 코인 =====
+    /** 코인 잔액 단독 조회 (배지 갱신 등에서 사용) */
+    @GetMapping("/coins")
+    public Map<String, Object> getMyCoins() {
+        int balance = coinService.getBalanceByUserId(currentUserId());
+        return Map.of("userId", currentUserId(), "balance", balance);
+    }
+
+    // ===== 배경 =====
     @GetMapping("/backgrounds")
     public List<BackgroundDTO> listBackgrounds() {
         return shopService.listBackgrounds(currentUserId());
@@ -47,13 +59,13 @@ public class ShopController {
         return shopService.activateBackground(currentUserId(), backgroundId);
     }
 
+    // ===== 먹이 =====
     @PostMapping("/feed")
     public CharacterInfoDTO feed() {
         return shopService.feedOnce(currentUserId());
     }
 
     // ===== 스킨 =====
-
     /** 스킨 구매 → SkinDTO 반환 */
     @PostMapping("/purchase/skin")
     public SkinDTO purchaseSkin(@RequestParam Long skinId) {
