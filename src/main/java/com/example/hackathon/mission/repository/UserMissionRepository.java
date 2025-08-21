@@ -50,5 +50,5 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
             @Param("user") User user,
             @Param("category") MissionCategory category);
 
-    boolean existsByUserAndCategoryIn(User user, List<MissionCategory> categories);
+    boolean existsByUserAndCategory(User user, MissionCategory category);
 }
