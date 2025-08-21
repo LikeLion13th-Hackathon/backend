@@ -1,11 +1,7 @@
 package com.example.hackathon.mission.service;
 
 import com.example.hackathon.entity.User;
-import com.example.hackathon.mission.entity.MissionCategory;
-import com.example.hackathon.mission.entity.MissionStatus;
-import com.example.hackathon.mission.entity.PlaceCategory;
-import com.example.hackathon.mission.entity.UserMission;
-import com.example.hackathon.mission.entity.VerificationType;
+import com.example.hackathon.mission.entity.*;
 import com.example.hackathon.mission.repository.UserMissionRepository;
 import com.example.hackathon.receipt.OcrStatus;
 import com.example.hackathon.receipt.VerificationStatus;
@@ -17,9 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @Transactional
@@ -37,7 +31,28 @@ public class MissionService {
         this.receiptRepository = receiptRepository;
     }
 
-    // 카테고리별 템플릿 (맞춤 미션, 영수증 인증)
+    // ===================== 홈화면용 랜덤 미션 =====================
+    public List<UserMission> getHomeMissions() {
+        List<UserMission> result = new ArrayList<>();
+
+        // 1) CUSTOM, AI_CUSTOM 중에서 랜덤으로 2개 선택
+        List<UserMission> customMissions = repo.findByCategoryIn(
+                List.of(MissionCategory.CUSTOM, MissionCategory.AI_CUSTOM));
+        Collections.shuffle(customMissions);
+        result.addAll(customMissions.stream().limit(2).toList());
+
+        // 2) RESTAURANT, LANDMARK, SPECIALTY 중에서 랜덤으로 1개 선택
+        List<UserMission> regionMissions = repo.findByCategoryIn(
+                List.of(MissionCategory.RESTAURANT, MissionCategory.LANDMARK, MissionCategory.SPECIALTY));
+        Collections.shuffle(regionMissions);
+        regionMissions.stream().findFirst().ifPresent(result::add);
+
+        return result;
+    }
+    // ============================================================
+
+
+    // ====== 기존 코드 ======
     private static final Map<PlaceCategory, Template> TPL = new EnumMap<>(PlaceCategory.class);
     static {
         put(PlaceCategory.CAFE,               "카페에서 %s원 이상 결제하기",             3000, 200);
@@ -102,9 +117,6 @@ public class MissionService {
         return m;
     }
 
-
-     // PHOTO       : 사진 업로드했다고 가정하고 즉시 완료
-     // RECEIPT_OCR : receiptId 필수, 영수증 검증 후 완료
     public UserMission completeAuto(User user, Long missionId, Long receiptIdIfAny) {
         UserMission m = getUserMission(user, missionId);
         if (m.getStatus() != MissionStatus.IN_PROGRESS) {
@@ -128,7 +140,6 @@ public class MissionService {
         throw new IllegalStateException("지원하지 않는 인증 방식입니다: " + vt);
     }
 
-
     public UserMission complete(User user, Long missionId, VerificationType type) {
         UserMission m = getUserMission(user, missionId);
         if (m.getStatus() != MissionStatus.IN_PROGRESS) {
@@ -139,10 +150,8 @@ public class MissionService {
         return m;
     }
 
-    // 영수증 기반 완료
     @Transactional
     public UserMission completeByReceipt(User user, Long missionId, Long receiptId) {
-        // 1) 미션 소유/상태/유형 확인
         UserMission m = getUserMission(user, missionId);
         if (m.getStatus() != MissionStatus.IN_PROGRESS) {
             throw new IllegalStateException("IN_PROGRESS 상태에서만 완료할 수 있습니다.");
@@ -151,7 +160,6 @@ public class MissionService {
             throw new IllegalStateException("이 미션은 영수증 인증 미션이 아닙니다.");
         }
 
-        // 2) 영수증 로드 + 소유/소속 검증
         Receipt r = receiptRepository.findById(receiptId)
                 .orElseThrow(() -> new IllegalArgumentException("영수증이 없습니다."));
         if (r.getUser() == null || r.getUser().getId() == null ||
@@ -165,22 +173,18 @@ public class MissionService {
             throw new IllegalStateException("OCR 처리가 완료되지 않았습니다.");
         }
 
-        // 3) 규칙 평가: 카테고리 + 금액 (+기간은 데모에서는 옵션)
         boolean categoryMatched =
                 (r.getDetectedPlaceCategory() != null && r.getDetectedPlaceCategory() == m.getPlaceCategory());
 
         Integer amt = r.getAmount();
         boolean amountSatisfied = (amt != null && amt >= m.getMinAmount());
 
-        // 데모에서는 기간 체크 비활성화(기본 false), 운영 전환 시 true
         boolean inPeriod = !checkPeriod || isWithinPeriod(r.getPurchaseAt(), m.getStartDate(), m.getEndDate());
 
-        // 4) 결과 반영
         if (categoryMatched && amountSatisfied && inPeriod) {
             m.setStatus(MissionStatus.COMPLETED);
             m.setCompletedAt(LocalDateTime.now());
 
-            // 성공 시에만 MATCHED로 보정(선택) — 이미 MATCHED면 그대로.
             if (r.getVerificationStatus() != VerificationStatus.MATCHED) {
                 r.setVerificationStatus(VerificationStatus.MATCHED);
                 r.setRejectReason(null);
@@ -200,7 +204,7 @@ public class MissionService {
     }
 
     private boolean isWithinPeriod(LocalDateTime purchaseAt, LocalDate start, LocalDate end) {
-        if (purchaseAt == null) return true; // 날짜 없으면 패스(데모 편의)
+        if (purchaseAt == null) return true;
         LocalDate d = purchaseAt.toLocalDate();
         boolean afterOrEqStart = (start == null) || !d.isBefore(start);
         boolean beforeOrEqEnd  = (end == null)   || !d.isAfter(end);

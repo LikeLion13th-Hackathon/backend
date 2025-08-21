@@ -27,4 +27,10 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
 
     // 추가: 단건 상세도 category로 검증
     Optional<UserMission> findByIdAndUserAndCategory(Long id, User user, MissionCategory category);
+
+    // ✅ 추가: 카테고리만으로 전체 조회
+    List<UserMission> findByCategory(MissionCategory category);
+
+    // ✅ 추가: 여러 카테고리 조회
+    List<UserMission> findByCategoryIn(List<MissionCategory> categories);
 }
