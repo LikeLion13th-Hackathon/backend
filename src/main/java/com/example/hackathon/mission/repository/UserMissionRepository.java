@@ -5,6 +5,8 @@ import com.example.hackathon.mission.entity.MissionCategory;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,4 +35,20 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
 
     // ✅ 추가: 여러 카테고리 조회
     List<UserMission> findByCategoryIn(List<MissionCategory> categories);
+
+    // 목록
+    @Query("SELECT um FROM UserMission um " +
+            "WHERE um.user = :user AND um.category = :category " +
+            "ORDER BY um.createdAt ASC")
+    List<UserMission> findMissionsByUserAndCategory(@Param("user") User user,
+            @Param("category") MissionCategory category);
+
+    // 단건
+    @Query("SELECT um FROM UserMission um " +
+            "WHERE um.id = :id AND um.user = :user AND um.category = :category")
+    Optional<UserMission> findMissionByIdAndUserAndCategory(@Param("id") Long id,
+            @Param("user") User user,
+            @Param("category") MissionCategory category);
+
+    boolean existsByUserAndCategoryIn(User user, List<MissionCategory> categories);
 }
