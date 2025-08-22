@@ -46,6 +46,50 @@ public class MissionController {
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
     }
 
+    // ===================== ✅ 추가: 전체/상태별 목록 조회 =====================
+
+    /**
+     * 전체 미션 목록 조회 (상태 파라미터 없으면 전체, 있으면 해당 상태만)
+     * 예)
+     *  - GET /api/missions                  -> 전체
+     *  - GET /api/missions?status=IN_PROGRESS -> 진행중만
+     *  - GET /api/missions?status=COMPLETED   -> 완료만
+     */
+    @GetMapping
+    public ResponseEntity<?> listAllOrByStatus(
+            HttpServletRequest request,
+            @RequestParam(required = false) MissionStatus status
+    ) {
+        User user = currentUser(request);
+
+        List<UserMission> list = (status == null)
+                ? missionService.listAllMissions(user)               // 레포 수정 없이 카테고리 합쳐서 조회
+                : missionService.listMissionsByStatus(user, status); // 메모리 필터
+
+        var res = list.stream().map(MissionController::toDto).toList();
+        return ResponseEntity.ok(res);
+    }
+
+    /** 진행중만 별칭 라우트 (프론트 편의용) */
+    @GetMapping("/in-progress")
+    public ResponseEntity<?> listInProgress(HttpServletRequest request) {
+        User user = currentUser(request);
+        var res = missionService.listMissionsByStatus(user, MissionStatus.IN_PROGRESS)
+                .stream().map(MissionController::toDto).toList();
+        return ResponseEntity.ok(res);
+    }
+
+    /** 완료만 별칭 라우트 (프론트 편의용) */
+    @GetMapping("/completed")
+    public ResponseEntity<?> listCompleted(HttpServletRequest request) {
+        User user = currentUser(request);
+        var res = missionService.listMissionsByStatus(user, MissionStatus.COMPLETED)
+                .stream().map(MissionController::toDto).toList();
+        return ResponseEntity.ok(res);
+    }
+
+    // ======================================================================
+
     // 맞춤 미션 목록 조회
     @GetMapping("/custom")
     public ResponseEntity<?> listCustomMissions(HttpServletRequest request) {

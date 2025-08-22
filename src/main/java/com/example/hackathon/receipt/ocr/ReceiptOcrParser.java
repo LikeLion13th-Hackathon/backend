@@ -7,15 +7,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * CLOVA OCR(JSON) -> 우리가 필요한 4개 값
- * (업체명/주소(Full/시도/구군/동)/결제일시/합계금액)으로 파싱 (강화판)
- */
+
+
 public class ReceiptOcrParser {
 
     private static final ObjectMapper M = new ObjectMapper();
@@ -33,15 +30,10 @@ public class ReceiptOcrParser {
     private static final Pattern PHONE = Pattern.compile("(TEL|Tel|전화|연락처|\\d{2,3}[)\\-]\\d{3,4}-\\d{4})");
 
     // ===== 날짜/시간 =====
-    // 2013/09/22, 2013-9-22, 2013.09.22
     private static final Pattern DATE = Pattern.compile("\\b(19|20)\\d{2}[./-]\\d{1,2}[./-]\\d{1,2}\\b");
-    // 2013년 9월 22일
     private static final Pattern DATE_KR = Pattern.compile("\\b(19|20)\\d{2}년\\s*\\d{1,2}월\\s*\\d{1,2}일\\b");
-    // 15:56[:07]
     private static final Pattern TIME = Pattern.compile("\\b(\\d{1,2}):(\\d{2})(?::(\\d{2}))?\\b");
-    // 오전/오후 3:56
     private static final Pattern TIME_AP = Pattern.compile("\\b(오전|오후)\\s*(\\d{1,2}):(\\d{2})(?::(\\d{2}))?\\b");
-    // 줄 나뉜 "15:" + 다음 줄 "56" -> "15:56"
     private static final Pattern BROKEN_TIME = Pattern.compile("(\\b\\d{1,2}):\\s*(\\d{2}\\b)");
 
     // ===== 주소 =====
@@ -71,6 +63,99 @@ public class ReceiptOcrParser {
 
     // ===== 상호 키워드 =====
     private static final String[] STORE_HINTS = {"상호", "상호명", "가맹점", "매장명", "업체명", "상점명"};
+
+    // ======= 상호명 기반 카테고리 오버라이드 =======
+    // 1) 상호명 정확 매핑(최우선)
+    // 2) 키워드 기반 휴리스틱(차선)
+    // 카테고리 명은 서버의 표기와 맞추기(예: "식당", "카페", "편의점", "쇼핑센터" 등).
+
+    private static final Map<String, String> CATEGORY_OVERRIDE_BY_STORE = new HashMap<>();
+    static {
+        // === 여기에 "정확 상호" → "원하는 카테고리"를 하드코딩 ===
+        // placeCategory에 있는 장소 정확히 입력
+
+        CATEGORY_OVERRIDE_BY_STORE.put("한돈당", "식당");
+        CATEGORY_OVERRIDE_BY_STORE.put("스타벅스", "카페");
+        CATEGORY_OVERRIDE_BY_STORE.put("이디야커피", "카페");
+        // CATEGORY_OVERRIDE_BY_STORE.put("OO마트 송도점", "쇼핑센터");
+    }
+
+    /** 키워드 우선순위가 앞에 올수록 먼저 매칭됨(LinkedHashMap 권장) */
+    private static final LinkedHashMap<String, String> CATEGORY_KEYWORDS = new LinkedHashMap<>();
+    static {
+        // === 상호명에 포함되면 매칭할 키워드 → 카테고리(간단 휴리스틱) ===
+        CATEGORY_KEYWORDS.put("카페", "카페");
+        CATEGORY_KEYWORDS.put("커피", "카페");
+        CATEGORY_KEYWORDS.put("커피숍", "카페");
+        CATEGORY_KEYWORDS.put("베이커리", "카페");
+
+        CATEGORY_KEYWORDS.put("식당", "식당");
+        CATEGORY_KEYWORDS.put("한식", "식당");
+        CATEGORY_KEYWORDS.put("분식", "식당");
+        CATEGORY_KEYWORDS.put("김밥", "식당");
+        CATEGORY_KEYWORDS.put("고기", "식당");
+        CATEGORY_KEYWORDS.put("한돈", "식당");
+        CATEGORY_KEYWORDS.put("장어", "식당");
+        CATEGORY_KEYWORDS.put("초밥", "식당");
+        CATEGORY_KEYWORDS.put("스시", "식당");
+        CATEGORY_KEYWORDS.put("비비큐", "식당");
+        CATEGORY_KEYWORDS.put("BBQ", "식당");
+
+        CATEGORY_KEYWORDS.put("편의점", "편의점");
+        CATEGORY_KEYWORDS.put("CU", "편의점");
+        CATEGORY_KEYWORDS.put("GS25", "편의점");
+        CATEGORY_KEYWORDS.put("세븐일레븐", "편의점");
+
+        CATEGORY_KEYWORDS.put("마트", "쇼핑센터");
+        CATEGORY_KEYWORDS.put("백화점", "쇼핑센터");
+        CATEGORY_KEYWORDS.put("아울렛", "쇼핑센터");
+        CATEGORY_KEYWORDS.put("문구", "쇼핑센터");
+        CATEGORY_KEYWORDS.put("서점", "쇼핑센터");
+    }
+
+    /** 외부에서 사용: 규칙 결과(detected)가 수상할 때 상호명으로 교정 */
+    public static String overrideCategoryByStoreName(String detectedPlaceCategory, String storeName) {
+        String normalizedStore = normalize(storeName);
+
+        // 1) 정확 상호 매핑(최우선)
+        if (normalizedStore != null) {
+            for (Map.Entry<String, String> e : CATEGORY_OVERRIDE_BY_STORE.entrySet()) {
+                if (normalizedStore.equals(normalize(e.getKey()))) {
+                    return e.getValue();
+                }
+            }
+        }
+
+        // 2) 키워드 매칭(차선)
+        String keywordGuess = guessCategoryByKeyword(normalizedStore);
+        if (keywordGuess != null) return keywordGuess;
+
+        // 3) 오버라이드 못하면 원래 값 유지
+        return detectedPlaceCategory;
+    }
+
+
+    public static String forceCategory(String preferredCategory, String detectedPlaceCategory) {
+        return (preferredCategory != null && !preferredCategory.isBlank())
+                ? preferredCategory
+                : detectedPlaceCategory;
+    }
+
+    private static String guessCategoryByKeyword(String normalizedStore) {
+        if (normalizedStore == null || normalizedStore.isBlank()) return null;
+        for (Map.Entry<String, String> e : CATEGORY_KEYWORDS.entrySet()) {
+            if (normalizedStore.contains(normalize(e.getKey()))) {
+                return e.getValue();
+            }
+        }
+        return null;
+    }
+
+    private static String normalize(String s) {
+        if (s == null) return null;
+        return s.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+    }
+
 
     public static ReceiptParsed parse(String clovaJson) throws Exception {
         JsonNode root = M.readTree(clovaJson);
@@ -144,7 +229,6 @@ public class ReceiptOcrParser {
     private static String cleanNoise(String s) {
         if (s == null) return "";
         String t = s;
-        // 주변 괄호/대괄호/콜론/중복 공백 제거
         t = t.replaceAll("[\\[\\]{}()]+", " ");
         t = t.replaceAll("[：:]+", ":");
         t = t.replaceAll("\\s+", " ").trim();
@@ -224,20 +308,16 @@ public class ReceiptOcrParser {
             String line = lines.get(idx);
             int score = 0;
 
-            // 주소 토큰 가중치
             for (String token : ADDR_TOKENS) if (line.contains(token)) score += 2;
 
-            // 길이/형태 가중치
             int len = line.length();
             if (len >= 10) score += 1;
-            if (line.matches(".*\\d{1,4}(-\\d{1,4})?.*")) score += 1; // 번지/건물번호
+            if (line.matches(".*\\d{1,4}(-\\d{1,4})?.*")) score += 1;
 
-            // 감점: 전화/금액/메뉴
             if (PHONE.matcher(line).find()) score -= 3;
             if (AMOUNT.matcher(line).find()) score -= 2;
             if (containsAny(line, TABLE_HINTS)) score -= 2;
 
-            // 상하 인접 줄이 주소 느낌이면 보너스
             if (idx > 0 && containsAny(lines.get(idx - 1), ADDR_TOKENS)) score += 1;
             if (idx + 1 < lines.size() && containsAny(lines.get(idx + 1), ADDR_TOKENS)) score += 1;
 
@@ -255,7 +335,6 @@ public class ReceiptOcrParser {
         for (int i = 0; i < toks.length; i++) {
             String tok = toks[i];
 
-            // 시도 후보
             if (sido == null) {
                 String cand = expandSido(tok);
                 if (isSido(cand) || tok.endsWith("특별자치도") || tok.endsWith("특별자치시")
@@ -264,21 +343,16 @@ public class ReceiptOcrParser {
                     continue;
                 }
             }
-            // 시군구 후보
             if (gugun == null && (tok.endsWith("시") || tok.endsWith("군") || tok.endsWith("구"))) {
-                // 시도가 아직 null이고 tok가 시/군/구면 → 다음 토큰이 읍/면/동이면 이 tok을 시군구로 채택
                 gugun = tok;
                 continue;
             }
-            // 읍면동 후보
             if (dong == null && (tok.endsWith("읍") || tok.endsWith("면") || tok.endsWith("동"))) {
                 dong = tok;
             }
         }
 
-        // 보정: 시도가 축약형 그대로면 확장
         if (sido != null) sido = expandSido(sido);
-        // 보정: 시도가 null인데 첫 토큰이 축약형 시도면
         if (sido == null && toks.length > 0 && isSido(expandSido(toks[0]))) {
             sido = expandSido(toks[0]);
             if (gugun == null && toks.length > 1 && toks[1].matches(".+(시|군|구)$")) gugun = toks[1];
@@ -302,13 +376,11 @@ public class ReceiptOcrParser {
 
     // ---------- 날짜/시간 ----------
     private static LocalDateTime extractPaidAtStrong(String text, List<String> lines) {
-        // 1) 한 줄에서 날짜+시간 동시 탐지
         LocalDate d = findDate(text);
         LocalTime t = findTime(text);
         if (d != null && t != null) return LocalDateTime.of(d, t);
         if (d != null) return LocalDateTime.of(d, LocalTime.MIDNIGHT);
 
-        // 2) 라인이 갈린 경우: 날짜 있는 줄 주변(±2줄)에서 시간 찾아 결합
         for (int i = 0; i < lines.size(); i++) {
             String ln = lines.get(i);
             LocalDate dl = findDate(ln);
@@ -378,13 +450,11 @@ public class ReceiptOcrParser {
 
     // ---------- 금액 ----------
     private static BigDecimal extractTotalAmountStrong(List<String> lines) {
-        // 1) 테이블 헤더 위치 파악(있으면 그 아래는 항목 라인으로 간주)
         int tableHeaderIdx = -1;
         for (int i = 0; i < lines.size(); i++) {
             if (containsAny(lines.get(i), TABLE_HINTS)) { tableHeaderIdx = i; break; }
         }
 
-        // 2) 우선순위 키워드 라인에서 값 추출 (뒤쪽 라인이 더 신뢰된다고 가정)
         BigDecimal best = null;
         for (int pri = 0; pri < TOTAL_HINTS_PRIORITY.length; pri++) {
             String hint = TOTAL_HINTS_PRIORITY[pri];
@@ -392,22 +462,18 @@ public class ReceiptOcrParser {
                 String ln = lines.get(i);
                 if (!ln.contains(hint)) continue;
                 if (tableHeaderIdx >= 0 && i > tableHeaderIdx + 1) {
-                    // 테이블 내부 합계처럼 보이면 패스(전역 루프로 폴백에서 잡힘)
-                    // 단, "받을금액/결제금액/총금액"은 예외적으로 허용
                     if (!(hint.contains("받을") || hint.contains("결제") || hint.contains("총금"))) {
                         continue;
                     }
                 }
                 BigDecimal v = maxAmountIn(ln);
-                if (v != null) return v; // 우선순위 힌트에서 발견 즉시 반환
+                if (v != null) return v;
             }
         }
 
-        // 3) 힌트 없으면 전역 최댓값(테이블 내부 단가/금액 제외하려 노력)
         for (int i = lines.size() - 1; i >= 0; i--) {
             String ln = lines.get(i);
             if (tableHeaderIdx >= 0 && i > tableHeaderIdx) {
-                // 메뉴 표의 숫자열은 우선 제외
                 if (ln.matches(".*\\b(\\d+[,\\d]*)\\b\\s*$")) continue;
             }
             BigDecimal v = maxAmountIn(ln);
