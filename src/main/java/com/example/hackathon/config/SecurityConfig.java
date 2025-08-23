@@ -21,19 +21,24 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults())
+                .cors(Customizer.withDefaults()) // ★ Security 레이어 CORS 활성화
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/", "/index.html", "/error",
                                 "/favicon.ico",
-                                "/css/**", "/js/**", "/images/**")
-                        .permitAll()
+                                "/css/**", "/js/**", "/images/**"
+                        ).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        // 필요하면 헬스체크도 공개
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/actuator/health").permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                        // ★ 프리플라이트 전부 허용
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // 필요 시 헬스체크 공개
+                        .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .anyRequest().authenticated()
+                );
+
+        // ★ JWT 필터는 UsernamePasswordAuthenticationFilter 앞에
+        http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
