@@ -38,7 +38,7 @@ out/
 
 ### Application Config ###
 application.yml
-application.local.yml
+application-local.yml
 
 /uploads/
 /uploads/**/*

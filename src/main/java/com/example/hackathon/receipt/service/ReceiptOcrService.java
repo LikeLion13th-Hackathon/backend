@@ -32,7 +32,6 @@ public class ReceiptOcrService {
     @Value("${clova.ocr.secret}")
     private String clovaOcrSecret;
 
-
     public Receipt runOcr(Long receiptId) throws Exception {
         Receipt r = receiptRepository.findById(receiptId)
                 .orElseThrow(() -> new IllegalArgumentException("receipt not found: " + receiptId));
@@ -75,20 +74,30 @@ public class ReceiptOcrService {
             // 5) JSON 파싱
             ReceiptParsed parsed = ReceiptOcrParser.parse(body);
 
-            // 6) 분류/검증까지 한 번에 처리
+            // 5-1) 주소 4종은 여기서 즉시 주입 (기존 handleOcrSucceeded 시그니처 유지)
+            if (parsed != null) {
+                r.setStoreAddressFull(parsed.storeAddressFull());
+                r.setStoreAddressSiDo(parsed.storeAddressSiDo());
+                r.setStoreAddressGuGun(parsed.storeAddressGuGun());
+                r.setStoreAddressDong(parsed.storeAddressDong());
+                // 필요하면 원문 JSON도 여기서 보관
+                r.setOcrRawJson(body);
+            }
+
+            // 6) 분류/검증까지 한 번에 처리 (상호/금액/일시는 기존 로직 유지)
             receiptService.handleOcrSucceeded(
                     receiptId,
                     parsed.storeName(),
                     parsed.totalAmount() != null ? parsed.totalAmount().intValue() : null,
                     parsed.paidAt(),
-                    body // raw json 저장
+                    body // raw json 저장(위에서 r.setOcrRawJson(body) 했으면 서비스 쪽은 무시해도 됨)
             );
 
             // 7) 갱신된 엔티티로 반환
             return receiptRepository.findById(receiptId).orElseThrow();
 
         } catch (Exception e) {
-            // (선택) 실패 마킹
+            // 실패 마킹
             receiptService.handleOcrFailed(receiptId, e.getMessage());
             throw e;
         }

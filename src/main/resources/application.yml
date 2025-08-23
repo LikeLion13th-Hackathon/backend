@@ -1,5 +1,5 @@
 server:
-  port: 9090
+  port: 8080
 
 spring:
   datasource:
@@ -40,9 +40,9 @@ app:
 
   # 업로드 저장 루트 (배포할 때 변경할 곳)
   upload:
-    base-dir: D:/Hackathon/backend/uploads/receipts
+    base-dir: /home/ec2-user/uploads/receipts
 
 clova:
   ocr:
     url: "https://6ub5hbkrwr.apigw.ntruss.com/custom/v1/45351/052f462209b7ff5e6202c6210292b33d5591684185839f2274abeca506ce4dfb/general"
-    secret: "ZEtMUGZMenJ2TUFKTmJ5ck1JS2laaUxLeGRKcXNjSXc="
+    secret: "ZEctMUGZMenJ2TUFKTmJ5ck1JS2laaUxLeGRKcXNjSXc="
