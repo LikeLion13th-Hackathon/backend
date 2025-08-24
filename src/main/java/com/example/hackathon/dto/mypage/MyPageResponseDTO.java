@@ -24,17 +24,13 @@ public class MyPageResponseDTO {
     private String nickname;
     private String email;
     private LocalDate birthDate;
-    private String job; // 직업 (예: STUDENT, EMPLOYEE …)
+    private String job; // STUDENT, EMPLOYEE 등
 
     // ===== 지역 =====
-    private String regionSido;   // 인천광역시
-    private String regionGungu;  // 부평구
-    private String regionDong;   // 부평동
+    private String regionSido;
+    private String regionGungu;
+    private String regionDong;
 
     // ===== 선호 장소 =====
     private Set<String> preferPlaces; // CAFE, LIBRARY, RESTAURANT 등
-
-    // ===== 미션 현황 =====
-    private List<String> ongoingMissions;   // 진행 중인 미션 제목 리스트
-    private List<String> completedMissions; // 완료된 미션 제목 리스트
 }

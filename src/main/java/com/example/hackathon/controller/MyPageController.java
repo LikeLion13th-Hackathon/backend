@@ -2,9 +2,9 @@ package com.example.hackathon.controller;
 
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
+import com.example.hackathon.dto.mypage.UserMissionSummaryDTO;
 import com.example.hackathon.mypage.service.MyPageService;
 import com.example.hackathon.repository.UserRepository;
-import com.example.hackathon.entity.User;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +17,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/me")
@@ -27,7 +26,7 @@ import java.util.Optional;
 public class MyPageController {
 
     private final MyPageService myPageService;
-    private final UserRepository userRepository; // ✅ email→id 조회용
+    private final UserRepository userRepository;
 
     /** 마이페이지 상단 - 내 정보 조회 */
     @GetMapping
@@ -47,47 +46,42 @@ public class MyPageController {
 
     /** 진행 중 미션 */
     @GetMapping("/missions/in-progress")
-    public List<String> inProgress(@AuthenticationPrincipal Object principal, HttpSession session) {
+    public List<UserMissionSummaryDTO> inProgress(@AuthenticationPrincipal Object principal, HttpSession session) {
         Long userId = resolveUserId(principal, session);
         return myPageService.getInProgressMissions(userId);
     }
 
     /** 완료 미션 */
     @GetMapping("/missions/completed")
-    public List<String> completed(@AuthenticationPrincipal Object principal, HttpSession session) {
+    public List<UserMissionSummaryDTO> completed(@AuthenticationPrincipal Object principal, HttpSession session) {
         Long userId = resolveUserId(principal, session);
         return myPageService.getCompletedMissions(userId);
     }
 
-    /** ✅ userId 해석 로직(보강) */
+    /** ✅ userId 해석 로직 */
     private Long resolveUserId(Object principal, HttpSession session) {
-        // 1) Spring Security
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && auth.getPrincipal() != null
                 && !"anonymousUser".equals(auth.getPrincipal())) {
 
             Object p = auth.getPrincipal();
 
-            // (a) 커스텀 Principal: getId(), getUserId() 지원
+            // (a) 커스텀 Principal
             try {
-                // getId()
                 var m = p.getClass().getMethod("getId");
-                m.setAccessible(true);
                 Object idObj = m.invoke(p);
                 if (idObj instanceof Integer i) return i.longValue();
                 if (idObj instanceof Long l)    return l;
-            } catch (NoSuchMethodException | IllegalAccessException | java.lang.reflect.InvocationTargetException ignored) {}
+            } catch (Exception ignored) {}
 
             try {
-                // getUserId()
                 var m = p.getClass().getMethod("getUserId");
-                m.setAccessible(true);
                 Object idObj = m.invoke(p);
                 if (idObj instanceof Integer i) return i.longValue();
                 if (idObj instanceof Long l)    return l;
-            } catch (NoSuchMethodException | IllegalAccessException | java.lang.reflect.InvocationTargetException ignored) {}
+            } catch (Exception ignored) {}
 
-            // (b) UserDetails: username = email 가정
+            // (b) UserDetails
             if (p instanceof UserDetails ud && ud.getUsername() != null) {
                 return userRepository.findByEmail(ud.getUsername())
                         .map(u -> u.getId().longValue())
@@ -124,5 +118,4 @@ public class MyPageController {
 
         throw new IllegalStateException("인증 정보에서 userId를 확인할 수 없습니다.");
     }
-
 }
