@@ -1,3 +1,4 @@
+// src/main/java/com/example/hackathon/service/CharacterQueryService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.common.NotFoundException;
@@ -5,8 +6,12 @@ import com.example.hackathon.dto.CharacterInfoDTO;
 import com.example.hackathon.entity.CharacterEntity;
 import com.example.hackathon.entity.CharacterKind;
 import com.example.hackathon.entity.CharacterLevelRequirement;
+import com.example.hackathon.entity.CharacterSkin;
+import com.example.hackathon.entity.UserCharacterProgress;
 import com.example.hackathon.repository.CharacterRepository;
 import com.example.hackathon.repository.LevelReqRepository;
+import com.example.hackathon.repository.CharacterSkinRepository;
+import com.example.hackathon.repository.UserCharacterProgressRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,10 +22,13 @@ public class CharacterQueryService {
 
     private final CharacterRepository characterRepo;
     private final LevelReqRepository levelRepo;
+    private final CharacterSkinRepository skinRepo;
+    private final UserCharacterProgressRepository progressRepo;
 
+    // ===== 내부 유틸 =====
     private int feedsRequiredFormula(int level) {
         if (level <= 0 || level > 30) throw new IllegalArgumentException("level out of range");
-        return (int) ((1L << level) - 1L); // 2^L - 1
+        return (int)((1L << level) - 1L); // 2^L - 1
     }
 
     private int feedsRequired(int level) {
@@ -31,44 +39,67 @@ public class CharacterQueryService {
 
     /** 레벨별 타이틀 매핑 */
     private String resolveTitle(CharacterKind kind, int level) {
-        // 기본값 가드: null이면 삐약이로 처리
         if (kind == null) kind = CharacterKind.CHICK;
 
-        boolean lv1 = level <= 1;
-        boolean lv2 = level == 2;
-        // 3 이상은 공통(최상위)
         if (kind == CharacterKind.CHICK) {
-            if (lv1) return "호기심많은 삐약이";
-            if (lv2) return "활발한 삐약이";
+            if (level <= 1) return "호기심많은 삐약이";
+            if (level == 2) return "활발한 삐약이";
             return "용맹한 삐약이";
         } else { // CAT
-            if (lv1) return "얌전한 야옹이";
-            if (lv2) return "새침한 야옹이";
+            if (level <= 1) return "얌전한 야옹이";
+            if (level == 2) return "새침한 야옹이";
             return "도도한 야옹이";
         }
     }
 
+    // ===== 캐릭터 조회 =====
     @Transactional(readOnly = true)
     public CharacterInfoDTO getCharacterInfo(Integer userId) {
+        // 1) 캐릭터 엔티티 조회
         CharacterEntity ch = characterRepo.findByUserId(userId)
                 .orElseThrow(() -> new NotFoundException("character"));
 
-        int required = feedsRequired(ch.getLevel());
-        int toNext = Math.max(0, required - ch.getFeedProgress());
-        String title = resolveTitle(ch.getKind(), ch.getLevel());
+        // 2) 활성 스킨 확인
+        Long activeSkinId = ch.getActiveSkinId();
+        CharacterKind kind = CharacterKind.CHICK; // 기본값
+        int level = 1;
+        int feedProgress = 0;
+        String displayName = "삐약이"; // 기본 표시 이름
+
+        if (activeSkinId != null) {
+            CharacterSkin skin = skinRepo.findById(activeSkinId).orElse(null);
+            if (skin != null && skin.getKind() != null) {
+                kind = skin.getKind();
+                // 스킨 이름을 기본 표시명으로
+                displayName = skin.getName();
+            }
+
+            // 유저-스킨별 진행도
+            UserCharacterProgress p = progressRepo.findByUserIdAndSkinId(userId, activeSkinId)
+                    .orElse(null);
+            if (p != null) {
+                level = p.getLevel();
+                feedProgress = p.getFeedProgress();
+                if (p.getDisplayName() != null && !p.getDisplayName().isBlank()) {
+                    // 유저가 직접 바꾼 이름이 있으면 그것 사용
+                    displayName = p.getDisplayName();
+                }
+            }
+        }
+
+        int required = feedsRequired(level);
+        int toNext = Math.max(0, required - feedProgress);
+
+        String title = resolveTitle(kind, level);
 
         return CharacterInfoDTO.builder()
                 .characterId(ch.getId())
-                .characterName(ch.getKind().getDefaultName())  // 기본 캐릭터 이름
-                .level(ch.getLevel())
-                .feedProgress(ch.getFeedProgress())
-                .feedsRequiredToNext(required)
+                .level(level)
+                .feedProgress(feedProgress)
+                .feedsRequiredToNext(toNext)
                 .activeBackgroundId(ch.getActiveBackgroundId())
                 .title(title)
-                .displayName(ch.getDisplayName())              // 유저가 설정한 이름
+                .displayName(displayName)
                 .build();
-
-
-
     }
 }

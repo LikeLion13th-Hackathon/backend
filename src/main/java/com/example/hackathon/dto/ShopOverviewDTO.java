@@ -12,5 +12,4 @@ import lombok.NoArgsConstructor;
 public class ShopOverviewDTO {
 
   private CharacterInfoDTO character;   // 캐릭터 정보 (id, name, level 등)
-  private String userSettingName;       // 유저 설정 이름(닉네임/표시명)
 }

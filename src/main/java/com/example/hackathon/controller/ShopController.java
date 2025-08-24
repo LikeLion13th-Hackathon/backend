@@ -11,6 +11,8 @@ import com.example.hackathon.service.ShopService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import com.example.hackathon.dto.SkinActivateResult;
+
 
 import java.util.List;
 import java.util.Map;
@@ -97,6 +99,9 @@ public class ShopController {
                                 HttpServletRequest request) {
         return shopService.activateSkin(uid(request), skinId);
     }
+
+
+
 
     // ===== 캐릭터 =====
     @PatchMapping("/character/name")
