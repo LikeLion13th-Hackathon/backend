@@ -18,6 +18,7 @@ public class SecurityBeansConfig {
         return new BCryptPasswordEncoder();
     }
 
+
     // Spring Security 전역 CORS
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

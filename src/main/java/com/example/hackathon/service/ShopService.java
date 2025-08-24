@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/service/ShopService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.common.ForbiddenException;
@@ -45,10 +44,10 @@ public class ShopService {
   private final CharacterSkinRepository skinRepo;
   private final UserSkinRepository userSkinRepo;
 
-  // ✅ 유저(표시명) 조회용
+  // 유저(표시명) 조회용
   private final UserRepository userRepo;
 
-  // ✅ 공용 캐릭터 조회 (홈/상점 동일 소스)
+  // 공용 캐릭터 조회 (홈/상점 동일 소스)
   private final CharacterQueryService characterQueryService;
 
   private static final int FEED_COST = 100;   // 먹이 1회 = 100코인
@@ -153,7 +152,7 @@ public class ShopService {
       throw new ForbiddenException("not ready to evolve");
     }
 
-    int cost = evolveCost(ch.getLevel()); // ★ 레벨별 비용
+    int cost = evolveCost(ch.getLevel()); // 레벨별 비용
     if (coinsRepo.tryDeduct(userId, cost) == 0) {
       throw new InsufficientBalanceException();
     }

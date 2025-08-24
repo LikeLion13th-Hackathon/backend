@@ -3,7 +3,7 @@ package com.example.hackathon.controller;
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
 import com.example.hackathon.mission.dto.MissionResponse;
-import com.example.hackathon.mypage.service.MyPageService;
+import com.example.hackathon.service.MyPageService;
 import com.example.hackathon.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
@@ -28,14 +28,14 @@ public class MyPageController {
     private final MyPageService myPageService;
     private final UserRepository userRepository;
 
-    /** 마이페이지 상단 - 내 정보 조회 */
+    // 마이페이지 상단 - 내 정보 조회
     @GetMapping
     public MyPageResponseDTO getMyInfo(@AuthenticationPrincipal Object principal, HttpSession session) {
         Long userId = resolveUserId(principal, session);
         return myPageService.getMyInfo(userId);
     }
 
-    /** 마이페이지 상단 - 내 정보 수정 */
+    // 마이페이지 상단 - 내 정보 수정
     @PatchMapping
     public MyPageResponseDTO updateMyInfo(@AuthenticationPrincipal Object principal,
                                           HttpSession session,
@@ -59,7 +59,7 @@ public class MyPageController {
     }
 
 
-    /** ✅ userId 해석 로직 */
+    // userId 해석 로직
     private Long resolveUserId(Object principal, HttpSession session) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && auth.getPrincipal() != null

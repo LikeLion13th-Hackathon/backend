@@ -25,7 +25,7 @@ public class RankingController {
         return rankingService.getTop100();
     }
 
-    /** 임시 테스트 친화: 헤더/쿼리/시큐리티/세션 순으로 userId 탐색 */
+    // 헤더/쿼리/시큐리티/세션 순으로 userId 탐색
     @GetMapping("/me")
     public MyRankResponse myRank(
             @RequestHeader(value = "X-User-Id", required = false) Integer headerUserId,

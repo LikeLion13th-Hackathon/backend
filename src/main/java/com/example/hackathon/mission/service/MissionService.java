@@ -1,6 +1,6 @@
 package com.example.hackathon.mission.service;
 
-import com.example.hackathon.ai_custom.service.AiMissionOrchestrator; // ★ 추가
+import com.example.hackathon.ai_custom.service.AiMissionOrchestrator; 
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.entity.*;
 import com.example.hackathon.mission.repository.UserMissionRepository;
@@ -32,7 +32,7 @@ public class MissionService {
 
     public MissionService(UserMissionRepository repo,
             ReceiptRepository receiptRepository,
-            AiMissionOrchestrator aiMissionOrchestrator) { // ★ 생성자에 주입
+            AiMissionOrchestrator aiMissionOrchestrator) { // 생성자에 주입
         this.repo = repo;
         this.receiptRepository = receiptRepository;
         this.aiMissionOrchestrator = aiMissionOrchestrator;
@@ -254,12 +254,12 @@ public class MissionService {
                 receiptRepository.save(r);
             }
 
-            UserMission saved = repo.save(m); // ★ 저장 (완료 카운트 반영)
+            UserMission saved = repo.save(m); 
 
-            // ★ 추가: 완료 카운트 → 3개 단위 시 오케스트레이터 호출
+            // 완료 카운트 → 3개 단위 시 오케스트레이터 호출
             int completed = repo.countCompletedByUser(user);
             if (completed % 3 == 0) {
-                aiMissionOrchestrator.recommendNextSet(user.getId().longValue()); // ★ Long으로 보정
+                aiMissionOrchestrator.recommendNextSet(user.getId().longValue()); 
             }
 
             return saved;
@@ -293,7 +293,7 @@ public class MissionService {
         if (m.getStatus() != MissionStatus.IN_PROGRESS && m.getStatus() != MissionStatus.ABANDONED) {
             throw new IllegalStateException("진행 중 또는 이미 포기된 미션에서만 초기화할 수 있습니다.");
         }
-        m.resetToReady(); // ★ 핵심 변경
+        m.resetToReady(); 
         return repo.save(m);
     }
 
@@ -318,18 +318,6 @@ public class MissionService {
                 .filter(m -> m.getStatus() == status)
                 .toList();
     }
-
-    // public List<Object[]> getMonthlySummary(User user) {
-    // return repo.getMonthlySummary(user);
-    // }
-
-    // public List<Object[]> getMonthlyCategorySummary(User user) {
-    // return repo.getMonthlyCategorySummary(user);
-    // }
-
-    // public Double getAverageSpending(User user) {
-    // return repo.getAverageSpending(user);
-    // }
 
     public List<Object[]> getMonthlySummary(User user) {
         return receiptRepository.sumAmountAndCountByMonth(user.getId().longValue());

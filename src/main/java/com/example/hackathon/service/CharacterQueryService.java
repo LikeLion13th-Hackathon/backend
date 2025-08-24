@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/service/CharacterQueryService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.common.NotFoundException;
@@ -60,7 +59,7 @@ public class CharacterQueryService {
 
         return CharacterInfoDTO.builder()
                 .characterId(ch.getId())
-                .characterName(ch.getKind().getDefaultName())  // ✅ 기본 캐릭터 이름
+                .characterName(ch.getKind().getDefaultName())  // 기본 캐릭터 이름
                 .level(ch.getLevel())
                 .feedProgress(ch.getFeedProgress())
                 .feedsRequiredToNext(required)

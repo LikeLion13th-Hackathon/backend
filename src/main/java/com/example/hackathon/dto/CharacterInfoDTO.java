@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/dto/CharacterInfoDTO.java
 package com.example.hackathon.dto;
 
 import lombok.AllArgsConstructor;
@@ -12,7 +11,7 @@ import lombok.NoArgsConstructor;
 @Builder
 public class CharacterInfoDTO {
   private Long characterId;        // 활성 캐릭터 PK
-  private String characterName;    // 🔵 기본 캐릭터 이름(캐릭터 엔티티의 name)
+  private String characterName;    // 기본 캐릭터 이름(캐릭터 엔티티의 name)
   private int level;
   private int feedProgress;
   private int feedsRequiredToNext;

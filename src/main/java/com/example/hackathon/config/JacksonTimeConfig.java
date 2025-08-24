@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class JacksonTimeConfig {
 
-    // 1) 빌더 커스터마이저 (지금 이미 있던 거)
+    // 1) 빌더 커스터마이저
     @Bean
     public Jackson2ObjectMapperBuilderCustomizer javaTimeCustomizer() {
         return builder -> {
@@ -19,7 +19,7 @@ public class JacksonTimeConfig {
         };
     }
 
-    // 2) ★추가★: 전역 ObjectMapper 빈
+    // 2) 전역 ObjectMapper 빈
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper om = new ObjectMapper();

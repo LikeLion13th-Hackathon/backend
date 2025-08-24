@@ -24,7 +24,7 @@ public class MissionWriter {
     private final UserMissionRepository userMissionRepository;
 
     public void saveMissions(Long userId, List<GeneratedMission> generated) {
-        User user = userRepository.findById(userId.intValue()) // ★ intValue()로 변환
+        User user = userRepository.findById(userId.intValue()) // intValue()로 변환
                 .orElseThrow(() -> new IllegalArgumentException("유저가 존재하지 않습니다. id=" + userId));
 
         LocalDate start = LocalDate.now();

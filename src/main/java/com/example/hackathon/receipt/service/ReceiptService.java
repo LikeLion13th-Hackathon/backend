@@ -100,7 +100,7 @@ public class ReceiptService {
                 .storagePath(savePath.toAbsolutePath().toString().replace("\\", "/")) // 내부용
                 .publicUrl(publicUrl)  // 배포면 실제 URL, 로컬이면 null
                 .ocrStatus(OcrStatus.PENDING)
-                // ✅ 스냅샷 & 초기 검증상태
+                // 스냅샷 & 초기 검증상태
                 .missionPlaceCategory(userMission.getPlaceCategory())
                 .verificationStatus(VerificationStatus.PENDING)
                 .build();
@@ -208,7 +208,7 @@ public class ReceiptService {
     private ClassifyResult classifyCategory(String storeName, String rawJson) {
         String s = normalize(storeName);
 
-        // ✅ 여기에 "예상되는 상호명 키워드"를 계속 추가해두면 됨
+        // 여기에 "예상되는 상호명 키워드"를 계속 추가해두면 됨
         // 카페
         if (anyMatch(s, "카페", "cafe", "스타벅", "투썸", "파스쿠찌", "엔제리너스", "메가커피", "빽다방", "할리스", "원어나더"))
             return new ClassifyResult(PlaceCategory.CAFE, 85);

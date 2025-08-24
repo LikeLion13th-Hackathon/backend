@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 public class GeneratedMission {
     private String title;                     //ex) "이번 주는 커피 대신 건강차 챌린지!"
     private String description;               //ex) "오후 루틴 바꿔보기: 허브티/유자차 구매 후 영수증 인증"
-    private PlaceCategory placeCategory;      //ex) CAFE, RESTAURANT, ...
-    private Integer minAmount;                // null이면 0으로 간주 (데모)
+    private PlaceCategory placeCategory;      //ex) CAFE, RESTAURANT, 등
+    private Integer minAmount;                // null이면 0으로 간주 
     private Integer rewardPoint;              // null이면 기본 보상
 }

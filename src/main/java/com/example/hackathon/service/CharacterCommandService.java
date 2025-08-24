@@ -14,7 +14,7 @@ public class CharacterCommandService {
 
     private final CharacterRepository characterRepo;
 
-    /** 회원가입 시 기본 캐릭터(삐약이) 생성. 이미 있으면 그대로 둠(idempotent). */
+    // 회원가입 시 기본 캐릭터(삐약이) 생성. 이미 있으면 그대로 둠(idempotent)
     @Transactional
     public CharacterEntity ensureDefaultCharacter(Integer userId) {
         return characterRepo.findByUserId(userId).orElseGet(() -> {

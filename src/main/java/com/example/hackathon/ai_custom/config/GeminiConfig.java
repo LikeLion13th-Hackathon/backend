@@ -13,6 +13,6 @@ public class GeminiConfig {
         return builder.build();
     }
 
-    // ⚠️ objectMapper 빈은 여기서 만들지 마세요.
-    // Spring Boot 기본 ObjectMapper 또는 JacksonTimeConfig의 @Bean이 주입됩니다.
+    // objectMapper 빈은 여기서 생성 x
+    // Spring Boot 기본 ObjectMapper 또는 JacksonTimeConfig의 @Bean이 주입됨.
 }

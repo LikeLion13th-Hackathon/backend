@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/service/RankingService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.dto.LeaderboardEntry;

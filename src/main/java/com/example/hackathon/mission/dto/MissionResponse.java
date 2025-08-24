@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/mission/dto/MissionResponse.java
 package com.example.hackathon.mission.dto;
 
 import com.example.hackathon.mission.entity.*;
@@ -27,7 +26,7 @@ public class MissionResponse {
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
 
-    // ✅ 공용 변환기: UserMission -> MissionResponse
+    // 공용 변환기: UserMission -> MissionResponse
     public static MissionResponse from(UserMission m) {
         return MissionResponse.builder()
                 .missionId(m.getId())

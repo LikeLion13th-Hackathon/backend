@@ -13,7 +13,6 @@ public class AiMissionRequest {
         this.categories = categories;
     }
 
-    // ✅ PlaceCategory enum 리스트도 받을 수 있게 추가
     public AiMissionRequest(List<PlaceCategory> placeCategories, boolean fromEnum) {
         this.categories = placeCategories.stream()
                 .map(Enum::name) // "RESTAURANT", "PARK" 같은 문자열로 변환

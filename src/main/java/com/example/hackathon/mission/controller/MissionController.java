@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/mission/controller/MissionController.java
 package com.example.hackathon.mission.controller;
 
 import com.example.hackathon.entity.User;
@@ -81,7 +80,7 @@ public class MissionController {
         }
 
         List<MissionResponse> res = list.stream()
-                .map(MissionResponse::from)   // ✅ 공용 변환
+                .map(MissionResponse::from)   // 공용 변환
                 .toList();
 
         return ResponseEntity.ok(res);
@@ -92,7 +91,7 @@ public class MissionController {
     public ResponseEntity<List<MissionResponse>> listInProgress(HttpServletRequest request) {
         User user = currentUser(request);
         List<MissionResponse> res = missionService.listMissionsByStatus(user, MissionStatus.IN_PROGRESS)
-                .stream().map(MissionResponse::from).toList(); // ✅ 공용 변환
+                .stream().map(MissionResponse::from).toList(); // 공용 변환
         return ResponseEntity.ok(res);
     }
 
@@ -101,7 +100,7 @@ public class MissionController {
     public ResponseEntity<List<MissionResponse>> listCompleted(HttpServletRequest request) {
         User user = currentUser(request);
         List<MissionResponse> res = missionService.listMissionsByStatus(user, MissionStatus.COMPLETED)
-                .stream().map(MissionResponse::from).toList(); // ✅ 공용 변환
+                .stream().map(MissionResponse::from).toList(); // 공용 변환
         return ResponseEntity.ok(res);
     }
 
@@ -120,7 +119,7 @@ public class MissionController {
         missionService.ensureInitialMissions(user, prefs);
 
         List<MissionResponse> res = missionService.listCustomMissions(user)
-                .stream().map(MissionResponse::from).toList(); // ✅ 공용 변환
+                .stream().map(MissionResponse::from).toList(); // 공용 변환
         return ResponseEntity.ok(res);
     }
 
@@ -129,7 +128,7 @@ public class MissionController {
     public ResponseEntity<MissionResponse> getMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.getUserMission(user, id);
-        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
+        return ResponseEntity.ok(MissionResponse.from(m)); // 공용 변환
     }
 
     // ===================== 상태 변경 =====================
@@ -139,7 +138,7 @@ public class MissionController {
     public ResponseEntity<MissionResponse> startMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.start(user, id);
-        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
+        return ResponseEntity.ok(MissionResponse.from(m)); // 공용 변환
     }
 
     /**
@@ -164,7 +163,7 @@ public class MissionController {
             coinService.addCoins(user, m.getRewardPoint());
         }
 
-        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
+        return ResponseEntity.ok(MissionResponse.from(m)); // 공용 변환
     }
 
     /** 포기 */

@@ -93,6 +93,9 @@ public class ReceiptOcrParser {
         CATEGORY_OVERRIDE_BY_STORE.put("한돈당", "식당");
         CATEGORY_OVERRIDE_BY_STORE.put("스타벅스", "카페");
         CATEGORY_OVERRIDE_BY_STORE.put("이디야커피", "카페");
+        CATEGORY_OVERRIDE_BY_STORE.put("아워스 OURS", "카페");
+        CATEGORY_OVERRIDE_BY_STORE.put("OURS", "카페");
+        CATEGORY_OVERRIDE_BY_STORE.put("아워스", "카페");
     }
     private static final LinkedHashMap<String, String> CATEGORY_KEYWORDS = new LinkedHashMap<>();
     static {
@@ -170,15 +173,15 @@ public class ReceiptOcrParser {
         String text = String.join("\n", lines);
         text = BROKEN_TIME.matcher(text).replaceAll("$1:$2");
 
-        String storeName = extractStoreName(lines);               // ★ 강화
+        String storeName = extractStoreName(lines);               // 강화
         String storeAddressFull = extractAddressFull(lines);
-        String[] parts = splitKoreanAddressRobust(storeAddressFull, lines); // ★ 괄호 동 탐색
+        String[] parts = splitKoreanAddressRobust(storeAddressFull, lines); // 괄호 동 탐색
         String sido  = parts[0];
         String gugun = parts[1];
         String dong  = parts[2];
 
         LocalDateTime paidAt = extractPaidAtStrong(text, lines);
-        BigDecimal totalAmount = extractTotalAmountStrong(lines); // ★ 금액 오인 방지 강화
+        BigDecimal totalAmount = extractTotalAmountStrong(lines); // 금액 오인 방지 강화
 
         return new ReceiptParsed(
                 emptyToNull(storeName),
@@ -344,7 +347,7 @@ public class ReceiptOcrParser {
         return best == null ? null : clean(best);
     }
 
-    // ★ 괄호 안 동명/이웃 줄까지 함께 탐색
+    // 괄호 안 동명/이웃 줄까지 함께 탐색
     private static String[] splitKoreanAddressRobust(String full, List<String> lines) {
         String sido = null, gugun = null, dong = null;
         if (full == null || full.isBlank()) return new String[]{null, null, null};
@@ -489,7 +492,7 @@ public class ReceiptOcrParser {
         try { return LocalTime.of(h, m, s); } catch (Exception e) { return null; }
     }
 
-    // ---------- 금액 (보강) ----------
+    // ---------- 금액 ----------
     private static BigDecimal extractTotalAmountStrong(List<String> lines) {
         int tableHeaderIdx = -1;
         for (int i = 0; i < lines.size(); i++) {

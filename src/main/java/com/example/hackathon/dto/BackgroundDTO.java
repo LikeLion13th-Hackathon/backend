@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/dto/BackgroundDTO.java
 package com.example.hackathon.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -16,7 +15,7 @@ public class BackgroundDTO {
   private int priceCoins;
   private boolean owned;
   private boolean active;
-  private Integer balance; // ★ 추가: 구매 후 잔액 (조회/목록에선 null)
+  private Integer balance; // 구매 후 잔액 (조회/목록에선 null)
 
   // 조회/목록용(잔액 없이) 생성자
   public BackgroundDTO(long backgroundId, String name, int priceCoins, boolean owned, boolean active) {

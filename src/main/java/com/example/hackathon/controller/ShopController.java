@@ -55,7 +55,7 @@ public class ShopController {
         return shopService.listInventory(uid(request));
     }
 
-    /** 배경 구매 → BackgroundDTO 반환 */
+    // 배경 구매 → BackgroundDTO 반환
     @PostMapping("/purchase/background")
     public BackgroundDTO purchaseBackground(@RequestParam Long backgroundId,
                                             HttpServletRequest request) {
@@ -75,7 +75,7 @@ public class ShopController {
     }
 
     // ===== 스킨 =====
-    /** 스킨 구매 → SkinDTO 반환 */
+    // 스킨 구매 → SkinDTO 반환
     @PostMapping("/purchase/skin")
     public SkinDTO purchaseSkin(@RequestParam Long skinId,
                                 HttpServletRequest request) {

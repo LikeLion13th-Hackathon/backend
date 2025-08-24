@@ -1,6 +1,6 @@
 package com.example.hackathon.dto.home;
 
-import com.example.hackathon.mission.dto.MissionResponse; // ✅ 추가
+import com.example.hackathon.mission.dto.MissionResponse;
 import lombok.*;
 import java.util.List;
 

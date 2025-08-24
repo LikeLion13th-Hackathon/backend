@@ -10,11 +10,10 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
+/*
  * 사용자 최근 소비 패턴을 간단 집계:
  *  - 카테고리 Top-N
  *  - 주요 시간대(오전/오후/저녁/야간)
- *
  * ReceiptRepository의 집계 쿼리(countByCategory, countByHour)를 사용한다.
  */
 @Component
@@ -24,7 +23,7 @@ public class MissionPatternAnalyzer {
 
     private final ReceiptRepository receiptRepository;
 
-    /**
+    /*
      * @param userId 대상 사용자
      * @param topN   상위 카테고리 개수 (기본 3 추천)
      */
@@ -69,7 +68,7 @@ public class MissionPatternAnalyzer {
         return new Result(topCategories, peakBand, byCategory, byHour);
     }
 
-    /** 시간대 밴드: 오전/오후/저녁/야간 */
+    /* 시간대 밴드: 오전/오후/저녁/야간 */
     public enum HourBand {
         MORNING,     // 06-11
         AFTERNOON,   // 12-17

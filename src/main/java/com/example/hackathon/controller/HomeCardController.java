@@ -55,7 +55,7 @@ public class HomeCardController {
 
         // 6) 랜덤 미션 3개 뽑기 → MissionResponse DTO로 변환
         List<MissionResponse> missions = missionService.getHomeMissions().stream()
-                .map(MissionResponse::from)   // ✅ 공용 변환
+                .map(MissionResponse::from)   // 공용 변환
                 .toList();
 
         // 7) 최종 응답 DTO
