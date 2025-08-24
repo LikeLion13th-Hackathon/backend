@@ -1,8 +1,7 @@
-// src/main/java/com/example/hackathon/dto/home/HomeCardResponseDTO.java
 package com.example.hackathon.dto.home;
 
+import com.example.hackathon.mission.dto.MissionResponse; // ✅ 추가
 import lombok.*;
-
 import java.util.List;
 
 @Data
@@ -10,6 +9,6 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class HomeCardResponseDTO {
-    private HomeCardDTO homeCard;                       // 기존 캐릭터/코인/배경 정보
-    private List<HomeCardMissionDTO> missions;          // 랜덤 미션 3개
+    private HomeCardDTO homeCard;
+    private List<MissionResponse> missions; // 공용 DTO
 }

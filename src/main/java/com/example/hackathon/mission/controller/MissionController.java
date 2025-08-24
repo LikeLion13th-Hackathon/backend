@@ -1,3 +1,4 @@
+// src/main/java/com/example/hackathon/mission/controller/MissionController.java
 package com.example.hackathon.mission.controller;
 
 import com.example.hackathon.entity.User;
@@ -8,24 +9,19 @@ import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
+import com.example.hackathon.receipt.repository.ReceiptRepository;
 import com.example.hackathon.repository.UserRepository;
 import com.example.hackathon.service.CoinService;
-
-import com.example.hackathon.receipt.repository.ReceiptRepository;
-
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -69,10 +65,11 @@ public class MissionController {
      * - GET /api/missions?status=READY&category=AI_CUSTOM
      */
     @GetMapping
-    public ResponseEntity<?> listAllOrByStatus(
+    public ResponseEntity<List<MissionResponse>> listAllOrByStatus(
             HttpServletRequest request,
             @RequestParam(required = false) MissionStatus status,
-            @RequestParam(required = false) MissionCategory category) {
+            @RequestParam(required = false) MissionCategory category
+    ) {
         User user = currentUser(request);
 
         List<UserMission> list = (status == null)
@@ -83,62 +80,66 @@ public class MissionController {
             list = list.stream().filter(m -> m.getCategory() == category).toList();
         }
 
-        var res = list.stream().map(MissionController::toDto).toList();
+        List<MissionResponse> res = list.stream()
+                .map(MissionResponse::from)   // ✅ 공용 변환
+                .toList();
+
         return ResponseEntity.ok(res);
     }
 
     /** 진행중만 (편의용) */
     @GetMapping("/in-progress")
-    public ResponseEntity<?> listInProgress(HttpServletRequest request) {
+    public ResponseEntity<List<MissionResponse>> listInProgress(HttpServletRequest request) {
         User user = currentUser(request);
-        var res = missionService.listMissionsByStatus(user, MissionStatus.IN_PROGRESS)
-                .stream().map(MissionController::toDto).toList();
+        List<MissionResponse> res = missionService.listMissionsByStatus(user, MissionStatus.IN_PROGRESS)
+                .stream().map(MissionResponse::from).toList(); // ✅ 공용 변환
         return ResponseEntity.ok(res);
     }
 
     /** 완료만 (편의용) */
     @GetMapping("/completed")
-    public ResponseEntity<?> listCompleted(HttpServletRequest request) {
+    public ResponseEntity<List<MissionResponse>> listCompleted(HttpServletRequest request) {
         User user = currentUser(request);
-        var res = missionService.listMissionsByStatus(user, MissionStatus.COMPLETED)
-                .stream().map(MissionController::toDto).toList();
+        List<MissionResponse> res = missionService.listMissionsByStatus(user, MissionStatus.COMPLETED)
+                .stream().map(MissionResponse::from).toList(); // ✅ 공용 변환
         return ResponseEntity.ok(res);
     }
 
     /** 맞춤(사용자 선호 기반) 목록 */
     @GetMapping("/custom")
-    public ResponseEntity<?> listCustomMissions(HttpServletRequest request) {
+    public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
         User user = currentUser(request);
 
         List<PlaceCategory> prefs = List.of(
                 user.getPref1(),
                 user.getPref2(),
-                user.getPref3());
+                user.getPref3()
+        );
 
         // 최초 진입 시 기본 미션 보장
         missionService.ensureInitialMissions(user, prefs);
 
-        List<UserMission> list = missionService.listCustomMissions(user);
-        var res = list.stream().map(MissionController::toDto).toList();
+        List<MissionResponse> res = missionService.listCustomMissions(user)
+                .stream().map(MissionResponse::from).toList(); // ✅ 공용 변환
         return ResponseEntity.ok(res);
     }
 
     /** 상세 조회 — 숫자만 매칭되도록 정규식 추가(비숫자 경로와 충돌 방지) */
     @GetMapping("/{id:\\d+}")
-    public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id) {
+    public ResponseEntity<MissionResponse> getMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.getUserMission(user, id);
-        return ResponseEntity.ok(toDto(m));
+        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
     }
 
     // ===================== 상태 변경 =====================
 
     /** 시작 */
     @PostMapping("/{id:\\d+}/start")
-    public ResponseEntity<?> startMission(HttpServletRequest request, @PathVariable Long id) {
+    public ResponseEntity<MissionResponse> startMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.start(user, id);
-        return ResponseEntity.ok(toDto(m));
+        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
     }
 
     /**
@@ -147,9 +148,11 @@ public class MissionController {
      * - 서비스 내부 트랜잭션에서 저장 후, 완료되면 코인 지급
      */
     @PostMapping("/{id:\\d+}/complete")
-    public ResponseEntity<?> completeMission(HttpServletRequest request,
+    public ResponseEntity<MissionResponse> completeMission(
+            HttpServletRequest request,
             @PathVariable Long id,
-            @RequestBody(required = false) CompleteRequest body) {
+            @RequestBody(required = false) CompleteRequest body
+    ) {
         User user = currentUser(request);
         Long receiptId = (body != null ? body.getReceiptId() : null);
 
@@ -161,75 +164,55 @@ public class MissionController {
             coinService.addCoins(user, m.getRewardPoint());
         }
 
-        return ResponseEntity.ok(toDto(m));
+        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
     }
 
     /** 포기 */
     @PostMapping("/{id:\\d+}/abandon")
-    public ResponseEntity<?> abandonMission(HttpServletRequest request, @PathVariable Long id) {
+    public ResponseEntity<MissionResponse> abandonMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.abandon(user, id);
-        return ResponseEntity.ok(toDto(m));
-    }
-
-    // ===================== DTO 변환 =====================
-
-    private static MissionResponse toDto(UserMission m) {
-        return MissionResponse.builder()
-                .missionId(m.getId())
-                .category(m.getCategory())
-                .placeCategory(m.getPlaceCategory())
-                .title(m.getTitle())
-                .description(m.getDescription())
-                .verificationType(m.getVerificationType())
-                .minAmount(m.getMinAmount())
-                .rewardPoint(m.getRewardPoint())
-                .status(m.getStatus())
-                .startDate(m.getStartDate())
-                .endDate(m.getEndDate())
-                .createdAt(m.getCreatedAt())
-                .startedAt(m.getStartedAt())
-                .completedAt(m.getCompletedAt())
-                .build();
+        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
     }
 
     // ===================== 소비 통계 =====================
 
     /** (1) 월별 합계 + 미션 개수 */
     @GetMapping("/summary/monthly")
-    public ResponseEntity<?> getMonthlySummary(HttpServletRequest request) {
+    public ResponseEntity<List<Map<String, Object>>> getMonthlySummary(HttpServletRequest request) {
         User user = currentUser(request);
         List<Object[]> rows = missionService.getMonthlySummary(user);
 
-        var res = rows.stream().map(r -> Map.of(
+        var res = rows.stream().map(r -> Map.<String, Object>of(
                 "month", r[0],
                 "totalAmount", r[1],
-                "missionsCompleted", r[2])).toList();
+                "missionsCompleted", r[2]
+        )).toList();
 
         return ResponseEntity.ok(res);
     }
 
     /** (2) 월별 + 카테고리별 소비 합계 */
     @GetMapping("/summary/monthly-category")
-    public ResponseEntity<?> getMonthlyCategorySummary(HttpServletRequest request) {
+    public ResponseEntity<List<Map<String, Object>>> getMonthlyCategorySummary(HttpServletRequest request) {
         User user = currentUser(request);
         List<Object[]> rows = missionService.getMonthlyCategorySummary(user);
 
-        var res = rows.stream().map(r -> Map.of(
+        var res = rows.stream().map(r -> Map.<String, Object>of(
                 "month", r[0],
                 "placeCategory", r[1],
                 "totalAmount", r[2],
-                "missionsCompleted", r[3])).toList();
+                "missionsCompleted", r[3]
+        )).toList();
 
         return ResponseEntity.ok(res);
     }
 
     /** (3) 평균 소비 금액 */
     @GetMapping("/summary/average")
-    public ResponseEntity<?> getAverageSpending(HttpServletRequest request) {
+    public ResponseEntity<Map<String, Object>> getAverageSpending(HttpServletRequest request) {
         User user = currentUser(request);
         Double avg = missionService.getAverageSpending(user);
         return ResponseEntity.ok(Map.of("averageSpending", avg != null ? avg : 0.0));
     }
-
 }

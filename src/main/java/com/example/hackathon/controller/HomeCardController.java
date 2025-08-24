@@ -1,8 +1,10 @@
 // src/main/java/com/example/hackathon/controller/HomeCardController.java
 package com.example.hackathon.controller;
 
-import com.example.hackathon.dto.home.*;
+import com.example.hackathon.dto.home.HomeCardDTO;
+import com.example.hackathon.dto.home.HomeCardResponseDTO;
 import com.example.hackathon.entity.User;
+import com.example.hackathon.mission.dto.MissionResponse;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
 import com.example.hackathon.repository.UserRepository;
@@ -51,15 +53,9 @@ public class HomeCardController {
         // 5) 홈카드 정보
         HomeCardDTO homeCard = homeCardService.getCardByEmail(email);
 
-        // 6) 랜덤 미션 3개 뽑기
-        List<HomeCardMissionDTO> missions = missionService.getHomeMissions().stream()
-                .map(m -> HomeCardMissionDTO.builder()
-                        .id(m.getId())
-                        .category(m.getCategory())
-                        .title(m.getTitle())
-                        .description(m.getDescription())
-                        .rewardPoint(m.getRewardPoint())
-                        .build())
+        // 6) 랜덤 미션 3개 뽑기 → MissionResponse DTO로 변환
+        List<MissionResponse> missions = missionService.getHomeMissions().stream()
+                .map(MissionResponse::from)   // ✅ 공용 변환
                 .toList();
 
         // 7) 최종 응답 DTO

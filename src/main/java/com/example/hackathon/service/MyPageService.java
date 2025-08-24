@@ -1,13 +1,13 @@
+// src/main/java/com/example/hackathon/mypage/service/MyPageService.java
 package com.example.hackathon.mypage.service;
 
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
-import com.example.hackathon.dto.mypage.UserMissionSummaryDTO;
 import com.example.hackathon.entity.User;
+import com.example.hackathon.mission.dto.MissionResponse;
 import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
-import com.example.hackathon.mission.repository.UserMissionRepository;
 import com.example.hackathon.repository.UserRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -24,10 +24,9 @@ import java.util.stream.Collectors;
 public class MyPageService {
 
     private final UserRepository userRepository;
-    private final UserMissionRepository userMissionRepository;
 
     @PersistenceContext
-    private EntityManager em;
+    private final EntityManager em;
 
     // ===== 상단: 내 정보 조회 =====
     @Transactional(readOnly = true)
@@ -52,7 +51,6 @@ public class MyPageService {
                 .build();
     }
 
-
     // ===== 상단: 내 정보 수정 (PATCH) =====
     @Transactional
     public MyPageResponseDTO updateMyInfo(Long userId, MyPageUpdateDTO dto) {
@@ -63,7 +61,7 @@ public class MyPageService {
             u.setBirthDate(LocalDate.parse(dto.getBirthDate()));
         }
         if (dto.getJob() != null) {
-            u.setRole(dto.getJob()); // role(String) 업데이트
+            u.setRole(dto.getJob());
         }
         if (dto.getRegionSido()  != null) u.setSido(dto.getRegionSido());
         if (dto.getRegionGungu() != null) u.setSigungu(dto.getRegionGungu());
@@ -71,7 +69,9 @@ public class MyPageService {
 
         if (dto.getPreferPlaces() != null) {
             List<PlaceCategory> parsed = dto.getPreferPlaces().stream()
-                    .filter(Objects::nonNull).map(String::trim).filter(s -> !s.isEmpty())
+                    .filter(Objects::nonNull)
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
                     .map(s -> {
                         try { return PlaceCategory.valueOf(s); }
                         catch (IllegalArgumentException e) { return null; }
@@ -93,13 +93,13 @@ public class MyPageService {
 
     // ===== 진행/완료 목록 =====
     @Transactional(readOnly = true)
-    public List<UserMissionSummaryDTO> getInProgressMissions(Long userId) {
-        return extractSummariesByStatus(getUser(userId), MissionStatus.IN_PROGRESS);
+    public List<MissionResponse> getInProgressMissions(Long userId) {
+        return extractByStatus(getUser(userId), MissionStatus.IN_PROGRESS);
     }
 
     @Transactional(readOnly = true)
-    public List<UserMissionSummaryDTO> getCompletedMissions(Long userId) {
-        return extractSummariesByStatus(getUser(userId), MissionStatus.COMPLETED);
+    public List<MissionResponse> getCompletedMissions(Long userId) {
+        return extractByStatus(getUser(userId), MissionStatus.COMPLETED);
     }
 
     // ===== 내부 헬퍼 =====
@@ -108,8 +108,8 @@ public class MyPageService {
                 .orElseThrow(() -> new IllegalArgumentException("유저가 존재하지 않습니다. id=" + userId));
     }
 
-    private List<UserMissionSummaryDTO> extractSummariesByStatus(User user, MissionStatus status) {
-        var list = em.createQuery("""
+    private List<MissionResponse> extractByStatus(User user, MissionStatus status) {
+        List<UserMission> list = em.createQuery("""
                 select um
                   from UserMission um
                  where um.user = :user
@@ -120,20 +120,6 @@ public class MyPageService {
                 .setParameter("status", status)
                 .getResultList();
 
-        return list.stream()
-                .map(um -> UserMissionSummaryDTO.builder()
-                        .missionId(um.getId())
-                        .category(um.getCategory())
-                        .placeCategory(um.getPlaceCategory())
-                        .title(um.getTitle())
-                        .description(um.getDescription())
-                        .verificationType(um.getVerificationType())
-                        .minAmount(um.getMinAmount())
-                        .rewardPoint(um.getRewardPoint())
-                        .status(um.getStatus())
-                        .startDate(um.getStartDate())
-                        .endDate(um.getEndDate())
-                        .build())
-                .toList();
+        return MissionResponse.fromList(list); // ✅ 공용 변환기
     }
 }
