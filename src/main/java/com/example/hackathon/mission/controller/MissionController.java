@@ -104,9 +104,17 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-    /** 맞춤(사용자 선호 기반) 목록 */
+    /**
+     * 맞춤(사용자 선호 기반) 목록
+     * - 최초 진입 시 ensureInitialMissions로 생성 보장
+     * - ?limit=N 으로 앞에서 N개만 반환 (기본 6개 → 기존 화면 호환)
+     * - 상태 필터링 없음(완료 포함) → 프론트에서 완료표시만 처리
+     */
     @GetMapping("/custom")
-    public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
+    public ResponseEntity<List<MissionResponse>> listCustomMissions(
+            HttpServletRequest request,
+            @RequestParam(name = "limit", defaultValue = "6") int limit
+    ) {
         User user = currentUser(request);
 
         List<PlaceCategory> prefs = List.of(
@@ -118,8 +126,13 @@ public class MissionController {
         // 최초 진입 시 기본 미션 보장
         missionService.ensureInitialMissions(user, prefs);
 
+        // 생성된 미션 중 앞에서 limit개만 (상태 무관)
         List<MissionResponse> res = missionService.listCustomMissions(user)
-                .stream().map(MissionResponse::from).toList(); // 공용 변환
+                .stream()
+                .limit(Math.max(0, limit))
+                .map(MissionResponse::from) // 공용 변환
+                .toList();
+
         return ResponseEntity.ok(res);
     }
 
