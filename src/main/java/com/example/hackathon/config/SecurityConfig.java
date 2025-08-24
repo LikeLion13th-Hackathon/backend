@@ -21,6 +21,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(Customizer.withDefaults()) // CORS 필터 적용
                 .cors(Customizer.withDefaults()) // Security 레이어 CORS 활성화
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
@@ -32,8 +33,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         // 프리플라이트 전부 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // 필요 시 헬스체크 공개
+                        // 헬스체크(둘 다 대비)
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/actuator/health").permitAll()
                         .anyRequest().authenticated()
                 );
 
