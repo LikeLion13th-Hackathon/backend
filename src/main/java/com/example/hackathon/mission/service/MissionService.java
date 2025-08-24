@@ -171,7 +171,7 @@ public class MissionService {
         }
         m.setStatus(MissionStatus.IN_PROGRESS);
         m.setStartedAt(LocalDateTime.now());
-        return m;
+        return repo.save(m); // ★ 저장
     }
 
     public UserMission completeAuto(User user, Long missionId, Long receiptIdIfAny) {
@@ -184,14 +184,14 @@ public class MissionService {
         if (vt == VerificationType.PHOTO) {
             m.setStatus(MissionStatus.COMPLETED);
             m.setCompletedAt(LocalDateTime.now());
-            return m;
+            return repo.save(m); // ★ 저장 (완료 카운트 반영)
         }
 
         if (vt == VerificationType.RECEIPT_OCR) {
             if (receiptIdIfAny == null) {
                 throw new IllegalArgumentException("receiptId는 필수입니다. (영수증 인증 미션)");
             }
-            return completeByReceipt(user, missionId, receiptIdIfAny);
+            return completeByReceipt(user, missionId, receiptIdIfAny); // 내부에서 저장
         }
 
         throw new IllegalStateException("지원하지 않는 인증 방식입니다: " + vt);
@@ -204,7 +204,7 @@ public class MissionService {
         }
         m.setStatus(MissionStatus.COMPLETED);
         m.setCompletedAt(LocalDateTime.now());
-        return m;
+        return repo.save(m); // ★ 저장
     }
 
     @Transactional
@@ -245,7 +245,10 @@ public class MissionService {
             if (r.getVerificationStatus() != VerificationStatus.MATCHED) {
                 r.setVerificationStatus(VerificationStatus.MATCHED);
                 r.setRejectReason(null);
+                receiptRepository.save(r); // ★ 영수증 저장(상태 변경 반영)
             }
+
+            return repo.save(m); // ★ 저장 (완료 카운트 반영)
         } else {
             String reason = String.format(
                     "categoryMatched=%s, amountSatisfied=%s, inPeriod=%s (detected=%s, mission=%s, amt=%s/%s, purchaseAt=%s, periodCheck=%s)",
@@ -256,8 +259,6 @@ public class MissionService {
             );
             throw new IllegalStateException("VERIFICATION_FAILED: " + reason);
         }
-
-        return m;
     }
 
     private boolean isWithinPeriod(LocalDateTime purchaseAt, LocalDate start, LocalDate end) {
@@ -274,7 +275,7 @@ public class MissionService {
             throw new IllegalStateException("IN_PROGRESS 상태에서만 포기할 수 있습니다.");
         }
         m.setStatus(MissionStatus.ABANDONED);
-        return m;
+        return repo.save(m); // ★ 저장
     }
 
     // ============================================================

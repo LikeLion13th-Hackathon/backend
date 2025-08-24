@@ -8,7 +8,8 @@ import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
 import com.example.hackathon.repository.UserRepository;
-import com.example.hackathon.service.CoinService;   // ✅ 추가
+import com.example.hackathon.service.CoinService;
+import com.example.hackathon.ai_custom.service.AiMissionService; // ★ AI 트리거용
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,14 +27,18 @@ public class MissionController {
 
     private final MissionService missionService;
     private final UserRepository userRepository;
-    private final CoinService coinService;   // ✅ 추가
+    private final CoinService coinService;
+    private final AiMissionService aiMissionService; // ★ 완료 시 트리거
+
+    // ===================== 공통 유틸 =====================
 
     private String resolveEmail(HttpServletRequest request) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && StringUtils.hasText(auth.getName()) && !"anonymousUser".equals(auth.getName())) {
             return auth.getName();
         }
-        String header = request.getHeader("X-USER-EMAIL"); // Postman 테스트용
+        // Postman 등 테스트용 헤더
+        String header = request.getHeader("X-USER-EMAIL");
         return StringUtils.hasText(header) ? header : null;
     }
 
@@ -46,15 +51,9 @@ public class MissionController {
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
     }
 
-    // ===================== ✅ 추가: 전체/상태별 목록 조회 =====================
+    // ===================== 기존 API =====================
 
-    /**
-     * 전체 미션 목록 조회 (상태 파라미터 없으면 전체, 있으면 해당 상태만)
-     * 예)
-     *  - GET /api/missions                  -> 전체
-     *  - GET /api/missions?status=IN_PROGRESS -> 진행중만
-     *  - GET /api/missions?status=COMPLETED   -> 완료만
-     */
+    /** 전체/상태별 목록 */
     @GetMapping
     public ResponseEntity<?> listAllOrByStatus(
             HttpServletRequest request,
@@ -63,14 +62,14 @@ public class MissionController {
         User user = currentUser(request);
 
         List<UserMission> list = (status == null)
-                ? missionService.listAllMissions(user)               // 레포 수정 없이 카테고리 합쳐서 조회
-                : missionService.listMissionsByStatus(user, status); // 메모리 필터
+                ? missionService.listAllMissions(user)
+                : missionService.listMissionsByStatus(user, status);
 
         var res = list.stream().map(MissionController::toDto).toList();
         return ResponseEntity.ok(res);
     }
 
-    /** 진행중만 별칭 라우트 (프론트 편의용) */
+    /** 진행중만 */
     @GetMapping("/in-progress")
     public ResponseEntity<?> listInProgress(HttpServletRequest request) {
         User user = currentUser(request);
@@ -79,7 +78,7 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-    /** 완료만 별칭 라우트 (프론트 편의용) */
+    /** 완료만 */
     @GetMapping("/completed")
     public ResponseEntity<?> listCompleted(HttpServletRequest request) {
         User user = currentUser(request);
@@ -88,9 +87,7 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-    // ======================================================================
-
-    // 맞춤 미션 목록 조회
+    /** 맞춤(사용자 선호 기반) 목록 */
     @GetMapping("/custom")
     public ResponseEntity<?> listCustomMissions(HttpServletRequest request) {
         User user = currentUser(request);
@@ -101,6 +98,7 @@ public class MissionController {
                 user.getPref3()
         );
 
+        // 최초 진입 시 기본 미션 보장
         missionService.ensureInitialMissions(user, prefs);
 
         List<UserMission> list = missionService.listCustomMissions(user);
@@ -108,47 +106,55 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-    // 특정 미션 상세 조회
-    @GetMapping("/{id}")
+    /** 상세 조회 — 숫자만 매칭되도록 정규식 추가(비숫자 경로와 충돌 방지) */
+    @GetMapping("/{id:\\d+}")
     public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id){
         User user = currentUser(request);
         UserMission m = missionService.getUserMission(user, id);
         return ResponseEntity.ok(toDto(m));
     }
 
-    // 미션 시작 (상태: READY -> IN_PROGRESS)
-    @PostMapping("/{id}/start")
+    /** 시작 */
+    @PostMapping("/{id:\\d+}/start")
     public ResponseEntity<?> startMission(HttpServletRequest request, @PathVariable Long id){
         User user = currentUser(request);
         UserMission m = missionService.start(user, id);
         return ResponseEntity.ok(toDto(m));
     }
 
-    // 미션 완료 (PHOTO → 즉시 완료 / RECEIPT_OCR → receiptId 필요)
-    @PostMapping("/{id}/complete")
+    /**
+     * ✅ 완료
+     * - MissionService.completeAuto(...) 안에서 @Transactional 로 상태가 DB에 반영된 뒤
+     *   여기서 보상 지급 → AI 생성 트리거 순으로 호출한다.
+     */
+    @PostMapping("/{id:\\d+}/complete")
     public ResponseEntity<?> completeMission(HttpServletRequest request,
                                              @PathVariable Long id,
                                              @RequestBody(required = false) CompleteRequest body){
         User user = currentUser(request);
         Long receiptId = (body != null ? body.getReceiptId() : null);
 
+        // 1) 완료 처리 (서비스 내부 트랜잭션에서 저장/flush/커밋)
         UserMission m = missionService.completeAuto(user, id, receiptId);
 
-        // ✅ 미션이 COMPLETED 상태일 때만 코인 지급
+        // 2) 완료가 확정된 경우에만 보상 + AI 트리거
         if (m.getStatus() == MissionStatus.COMPLETED) {
             coinService.addCoins(user, m.getRewardPoint());
+            aiMissionService.handleMissionSuccess(user.getId().longValue()); // ★ AI 생성 트리거
         }
 
         return ResponseEntity.ok(toDto(m));
     }
 
-    // 미션 포기 (상태: IN_PROGRESS -> ABANDONED)
-    @PostMapping("/{id}/abandon")
+    /** 포기 */
+    @PostMapping("/{id:\\d+}/abandon")
     public ResponseEntity<?> abandonMission(HttpServletRequest request, @PathVariable Long id){
         User user = currentUser(request);
         UserMission m = missionService.abandon(user, id);
         return ResponseEntity.ok(toDto(m));
     }
+
+    // ===================== DTO 변환 =====================
 
     private static MissionResponse toDto(UserMission m){
         return MissionResponse.builder()

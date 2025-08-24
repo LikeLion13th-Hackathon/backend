@@ -67,6 +67,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import java.time.LocalDate;
 
@@ -75,6 +76,7 @@ import java.time.LocalDate;
  */
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(prefix = "init", name = "dummy", havingValue = "true", matchIfMissing = false)
 public class DummyMissionInitializer {
 
     private final UserMissionRepository userMissionRepository;
