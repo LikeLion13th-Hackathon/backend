@@ -10,14 +10,21 @@ import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
 import com.example.hackathon.repository.UserRepository;
 import com.example.hackathon.service.CoinService;
+
+import com.example.hackathon.receipt.repository.ReceiptRepository;
+
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.List;
 
 @RestController
@@ -27,6 +34,7 @@ public class MissionController {
 
     private final MissionService missionService;
     private final UserRepository userRepository;
+    private final ReceiptRepository receiptRepository;
     private final CoinService coinService;
 
     // ===================== 공통 유틸 =====================
@@ -41,7 +49,7 @@ public class MissionController {
         return StringUtils.hasText(header) ? header : null;
     }
 
-    private User currentUser(HttpServletRequest request){
+    private User currentUser(HttpServletRequest request) {
         String email = resolveEmail(request);
         if (!StringUtils.hasText(email)) {
             throw new RuntimeException("인증 정보가 없습니다. (JWT 또는 X-USER-EMAIL 필요)");
@@ -55,17 +63,16 @@ public class MissionController {
     /**
      * 전체/상태별(+선택: 카테고리 필터) 목록
      * 사용 예:
-     *   - GET /api/missions
-     *   - GET /api/missions?status=COMPLETED
-     *   - GET /api/missions?category=AI_CUSTOM
-     *   - GET /api/missions?status=READY&category=AI_CUSTOM
+     * - GET /api/missions
+     * - GET /api/missions?status=COMPLETED
+     * - GET /api/missions?category=AI_CUSTOM
+     * - GET /api/missions?status=READY&category=AI_CUSTOM
      */
     @GetMapping
     public ResponseEntity<?> listAllOrByStatus(
             HttpServletRequest request,
             @RequestParam(required = false) MissionStatus status,
-            @RequestParam(required = false) MissionCategory category
-    ) {
+            @RequestParam(required = false) MissionCategory category) {
         User user = currentUser(request);
 
         List<UserMission> list = (status == null)
@@ -106,8 +113,7 @@ public class MissionController {
         List<PlaceCategory> prefs = List.of(
                 user.getPref1(),
                 user.getPref2(),
-                user.getPref3()
-        );
+                user.getPref3());
 
         // 최초 진입 시 기본 미션 보장
         missionService.ensureInitialMissions(user, prefs);
@@ -119,7 +125,7 @@ public class MissionController {
 
     /** 상세 조회 — 숫자만 매칭되도록 정규식 추가(비숫자 경로와 충돌 방지) */
     @GetMapping("/{id:\\d+}")
-    public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id){
+    public ResponseEntity<?> getMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.getUserMission(user, id);
         return ResponseEntity.ok(toDto(m));
@@ -129,7 +135,7 @@ public class MissionController {
 
     /** 시작 */
     @PostMapping("/{id:\\d+}/start")
-    public ResponseEntity<?> startMission(HttpServletRequest request, @PathVariable Long id){
+    public ResponseEntity<?> startMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.start(user, id);
         return ResponseEntity.ok(toDto(m));
@@ -142,8 +148,8 @@ public class MissionController {
      */
     @PostMapping("/{id:\\d+}/complete")
     public ResponseEntity<?> completeMission(HttpServletRequest request,
-                                             @PathVariable Long id,
-                                             @RequestBody(required = false) CompleteRequest body){
+            @PathVariable Long id,
+            @RequestBody(required = false) CompleteRequest body) {
         User user = currentUser(request);
         Long receiptId = (body != null ? body.getReceiptId() : null);
 
@@ -160,7 +166,7 @@ public class MissionController {
 
     /** 포기 */
     @PostMapping("/{id:\\d+}/abandon")
-    public ResponseEntity<?> abandonMission(HttpServletRequest request, @PathVariable Long id){
+    public ResponseEntity<?> abandonMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.abandon(user, id);
         return ResponseEntity.ok(toDto(m));
@@ -168,7 +174,7 @@ public class MissionController {
 
     // ===================== DTO 변환 =====================
 
-    private static MissionResponse toDto(UserMission m){
+    private static MissionResponse toDto(UserMission m) {
         return MissionResponse.builder()
                 .missionId(m.getId())
                 .category(m.getCategory())
@@ -186,4 +192,44 @@ public class MissionController {
                 .completedAt(m.getCompletedAt())
                 .build();
     }
+
+    // ===================== 소비 통계 =====================
+
+    /** (1) 월별 합계 + 미션 개수 */
+    @GetMapping("/summary/monthly")
+    public ResponseEntity<?> getMonthlySummary(HttpServletRequest request) {
+        User user = currentUser(request);
+        List<Object[]> rows = missionService.getMonthlySummary(user);
+
+        var res = rows.stream().map(r -> Map.of(
+                "month", r[0],
+                "totalAmount", r[1],
+                "missionsCompleted", r[2])).toList();
+
+        return ResponseEntity.ok(res);
+    }
+
+    /** (2) 월별 + 카테고리별 소비 합계 */
+    @GetMapping("/summary/monthly-category")
+    public ResponseEntity<?> getMonthlyCategorySummary(HttpServletRequest request) {
+        User user = currentUser(request);
+        List<Object[]> rows = missionService.getMonthlyCategorySummary(user);
+
+        var res = rows.stream().map(r -> Map.of(
+                "month", r[0],
+                "placeCategory", r[1],
+                "totalAmount", r[2],
+                "missionsCompleted", r[3])).toList();
+
+        return ResponseEntity.ok(res);
+    }
+
+    /** (3) 평균 소비 금액 */
+    @GetMapping("/summary/average")
+    public ResponseEntity<?> getAverageSpending(HttpServletRequest request) {
+        User user = currentUser(request);
+        Double avg = missionService.getAverageSpending(user);
+        return ResponseEntity.ok(Map.of("averageSpending", avg != null ? avg : 0.0));
+    }
+
 }

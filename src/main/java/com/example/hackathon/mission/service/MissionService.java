@@ -31,8 +31,8 @@ public class MissionService {
     private boolean checkPeriod;
 
     public MissionService(UserMissionRepository repo,
-                          ReceiptRepository receiptRepository,
-                          AiMissionOrchestrator aiMissionOrchestrator) { // ★ 생성자에 주입
+            ReceiptRepository receiptRepository,
+            AiMissionOrchestrator aiMissionOrchestrator) { // ★ 생성자에 주입
         this.repo = repo;
         this.receiptRepository = receiptRepository;
         this.aiMissionOrchestrator = aiMissionOrchestrator;
@@ -61,32 +61,37 @@ public class MissionService {
     // ====== 기본 템플릿 (1번 미션) ======
     private static final Map<PlaceCategory, Template> TPL = new EnumMap<>(PlaceCategory.class);
     static {
-        put(PlaceCategory.CAFE,               "카페에서 %s원 이상 결제하기",             3000, 200);
-        put(PlaceCategory.RESTAURANT,         "음식점에서 %s원 이상 결제하기",           7000, 250);
-        put(PlaceCategory.MUSEUM,             "박물관 입장권 영수증 인증하기",     3000, 250);
-        put(PlaceCategory.LIBRARY,            "서점/문구점에서 %s원 이상 결제하기",     2000, 150);
-        put(PlaceCategory.PARK,               "편의점에서 음료나 간식 %s원 이상 결제하기",              2000, 150);
-        put(PlaceCategory.SPORTS_FACILITY,    "운동 시설 이용권 영수증 인증하기",         10000, 200);
-        put(PlaceCategory.SHOPPING_MALL,      "쇼핑센터에서 %s원 이상 결제하기",          8000, 250);
-        put(PlaceCategory.TRADITIONAL_MARKET, "전통 시장에서 %s원 이상 결제하기",          5000, 250);
-        put(PlaceCategory.OTHER,              "주변 상점에서 %s원 이상 결제하기",          3000, 150);
+        put(PlaceCategory.CAFE, "카페에서 %s원 이상 결제하기", 3000, 200);
+        put(PlaceCategory.RESTAURANT, "음식점에서 %s원 이상 결제하기", 7000, 250);
+        put(PlaceCategory.MUSEUM, "박물관 입장권 영수증 인증하기", 3000, 250);
+        put(PlaceCategory.LIBRARY, "서점/문구점에서 %s원 이상 결제하기", 2000, 150);
+        put(PlaceCategory.PARK, "편의점에서 음료나 간식 %s원 이상 결제하기", 2000, 150);
+        put(PlaceCategory.SPORTS_FACILITY, "운동 시설 이용권 영수증 인증하기", 10000, 200);
+        put(PlaceCategory.SHOPPING_MALL, "쇼핑센터에서 %s원 이상 결제하기", 8000, 250);
+        put(PlaceCategory.TRADITIONAL_MARKET, "전통 시장에서 %s원 이상 결제하기", 5000, 250);
+        put(PlaceCategory.OTHER, "주변 상점에서 %s원 이상 결제하기", 3000, 150);
     }
-    private static void put(PlaceCategory c, String p, int min, int r){ TPL.put(c, new Template(p,min,r)); }
-    private record Template(String pattern, int minAmount, int rewardPoint) {}
+
+    private static void put(PlaceCategory c, String p, int min, int r) {
+        TPL.put(c, new Template(p, min, r));
+    }
+
+    private record Template(String pattern, int minAmount, int rewardPoint) {
+    }
 
     // ====== 보조 템플릿 (2번 미션: 금액/리워드/문구를 직접 지정) ======
     private static final Map<PlaceCategory, Template> TPL_ALT = new EnumMap<>(PlaceCategory.class);
     static {
-        TPL_ALT.put(PlaceCategory.CAFE,               new Template("카페에서 %s원 이상 결제하기",        2000, 150));
-        TPL_ALT.put(PlaceCategory.RESTAURANT,         new Template("음식점에서 %s원 이상 결제하기",      5000, 200));
-        TPL_ALT.put(PlaceCategory.SHOPPING_MALL,      new Template("쇼핑센터에서 %s원 이상 결제하기",    6000, 200));
-        TPL_ALT.put(PlaceCategory.TRADITIONAL_MARKET, new Template("전통 시장에서 %s원 이상 결제하기",    3000, 200));
-        TPL_ALT.put(PlaceCategory.OTHER,              new Template("주변 상점에서 %s원 이상 결제하기",    2000, 100));
+        TPL_ALT.put(PlaceCategory.CAFE, new Template("카페에서 %s원 이상 결제하기", 2000, 150));
+        TPL_ALT.put(PlaceCategory.RESTAURANT, new Template("음식점에서 %s원 이상 결제하기", 5000, 200));
+        TPL_ALT.put(PlaceCategory.SHOPPING_MALL, new Template("쇼핑센터에서 %s원 이상 결제하기", 6000, 200));
+        TPL_ALT.put(PlaceCategory.TRADITIONAL_MARKET, new Template("전통 시장에서 %s원 이상 결제하기", 3000, 200));
+        TPL_ALT.put(PlaceCategory.OTHER, new Template("주변 상점에서 %s원 이상 결제하기", 2000, 100));
 
-        TPL_ALT.put(PlaceCategory.MUSEUM,          new Template("미술관 관람 영수증 인증하기",     2000, 200));
-        TPL_ALT.put(PlaceCategory.LIBRARY,         new Template("도서관 이용 영수증 인증하기",            2000, 100));
-        TPL_ALT.put(PlaceCategory.PARK,            new Template("자전거/운동 기구 대여 %원 이상 이용",              2000, 100));
-        TPL_ALT.put(PlaceCategory.SPORTS_FACILITY, new Template("운동 시설 이용권 영수증 인증하기",         10000, 200));
+        TPL_ALT.put(PlaceCategory.MUSEUM, new Template("미술관 관람 영수증 인증하기", 2000, 200));
+        TPL_ALT.put(PlaceCategory.LIBRARY, new Template("도서관 이용 영수증 인증하기", 2000, 100));
+        TPL_ALT.put(PlaceCategory.PARK, new Template("자전거/운동 기구 대여 %원 이상 이용", 2000, 100));
+        TPL_ALT.put(PlaceCategory.SPORTS_FACILITY, new Template("운동 시설 이용권 영수증 인증하기", 10000, 200));
     }
 
     // 회원가입 직후 초기 맞춤 미션 생성
@@ -95,20 +100,21 @@ public class MissionService {
         LocalDate end = start.plusWeeks(3);
 
         for (PlaceCategory p : prefs) {
-            if (p == null) continue;
+            if (p == null)
+                continue;
 
             List<UserMission> existing = repo.findByUserAndCategoryAndPlaceCategoryOrderByCreatedAtAsc(
-                    user, MissionCategory.CUSTOM, p
-            );
+                    user, MissionCategory.CUSTOM, p);
 
             Set<String> existingTitles = new HashSet<>();
-            for (UserMission um : existing) existingTitles.add(um.getTitle());
+            for (UserMission um : existing)
+                existingTitles.add(um.getTitle());
 
             if (existing.size() < 2) {
                 Template t1 = TPL.getOrDefault(p, TPL.get(PlaceCategory.OTHER));
                 Template t2 = TPL_ALT.getOrDefault(p, TPL_ALT.get(PlaceCategory.OTHER));
 
-                String prefix = (user.getDong()!=null && !user.getDong().isBlank()) ? (user.getDong()+" ") : "";
+                String prefix = (user.getDong() != null && !user.getDong().isBlank()) ? (user.getDong() + " ") : "";
 
                 String title1 = buildTitle(prefix, t1.pattern(), t1.minAmount());
                 if (!existingTitles.contains(title1)) {
@@ -134,9 +140,10 @@ public class MissionService {
     }
 
     private UserMission buildMission(User user, PlaceCategory p, String title, Template t,
-                                     LocalDate start, LocalDate end) {
-        String desc = (user.getDong()!=null && !user.getDong().isBlank()
-                ? user.getDong()+" " : "") + p.label + " 이용 영수증을 업로드하면 자동 인증됩니다.";
+            LocalDate start, LocalDate end) {
+        String desc = (user.getDong() != null && !user.getDong().isBlank()
+                ? user.getDong() + " "
+                : "") + p.label + " 이용 영수증을 업로드하면 자동 인증됩니다.";
 
         return UserMission.builder()
                 .user(user)
@@ -229,8 +236,8 @@ public class MissionService {
             throw new IllegalStateException("OCR 처리가 완료되지 않았습니다.");
         }
 
-        boolean categoryMatched =
-                (r.getDetectedPlaceCategory() != null && r.getDetectedPlaceCategory() == m.getPlaceCategory());
+        boolean categoryMatched = (r.getDetectedPlaceCategory() != null
+                && r.getDetectedPlaceCategory() == m.getPlaceCategory());
 
         Integer amt = r.getAmount();
         boolean amountSatisfied = (amt != null && amt >= m.getMinAmount());
@@ -262,17 +269,17 @@ public class MissionService {
                     categoryMatched, amountSatisfied, inPeriod,
                     String.valueOf(r.getDetectedPlaceCategory()), m.getPlaceCategory(),
                     String.valueOf(amt), String.valueOf(m.getMinAmount()),
-                    String.valueOf(r.getPurchaseAt()), checkPeriod
-            );
+                    String.valueOf(r.getPurchaseAt()), checkPeriod);
             throw new IllegalStateException("VERIFICATION_FAILED: " + reason);
         }
     }
 
     private boolean isWithinPeriod(LocalDateTime purchaseAt, LocalDate start, LocalDate end) {
-        if (purchaseAt == null) return true;
+        if (purchaseAt == null)
+            return true;
         LocalDate d = purchaseAt.toLocalDate();
         boolean afterOrEqStart = (start == null) || !d.isBefore(start);
-        boolean beforeOrEqEnd  = (end == null)   || !d.isAfter(end);
+        boolean beforeOrEqEnd = (end == null) || !d.isAfter(end);
         return afterOrEqStart && beforeOrEqEnd;
     }
 
@@ -286,7 +293,7 @@ public class MissionService {
         if (m.getStatus() != MissionStatus.IN_PROGRESS && m.getStatus() != MissionStatus.ABANDONED) {
             throw new IllegalStateException("진행 중 또는 이미 포기된 미션에서만 초기화할 수 있습니다.");
         }
-        m.resetToReady();               // ★ 핵심 변경
+        m.resetToReady(); // ★ 핵심 변경
         return repo.save(m);
     }
 
@@ -305,9 +312,34 @@ public class MissionService {
     }
 
     public List<UserMission> listMissionsByStatus(User user, MissionStatus status) {
-        if (status == null) return listAllMissions(user);
+        if (status == null)
+            return listAllMissions(user);
         return listAllMissions(user).stream()
                 .filter(m -> m.getStatus() == status)
                 .toList();
+    }
+
+    // public List<Object[]> getMonthlySummary(User user) {
+    // return repo.getMonthlySummary(user);
+    // }
+
+    // public List<Object[]> getMonthlyCategorySummary(User user) {
+    // return repo.getMonthlyCategorySummary(user);
+    // }
+
+    // public Double getAverageSpending(User user) {
+    // return repo.getAverageSpending(user);
+    // }
+
+    public List<Object[]> getMonthlySummary(User user) {
+        return receiptRepository.sumAmountAndCountByMonth(user.getId().longValue());
+    }
+
+    public List<Object[]> getMonthlyCategorySummary(User user) {
+        return receiptRepository.sumAmountByMonthAndCategory(user.getId().longValue());
+    }
+
+    public Double getAverageSpending(User user) {
+        return receiptRepository.averageAmount(user.getId().longValue());
     }
 }
