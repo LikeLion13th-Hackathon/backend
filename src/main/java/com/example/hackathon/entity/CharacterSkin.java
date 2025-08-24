@@ -26,4 +26,9 @@ public class CharacterSkin {
 
     @Column(name = "image_url")
     private String imageUrl; // 선택
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kind", nullable = true)   // ★ 추가: CHICK | CAT
+    private CharacterKind kind;               // ← 이게 있어야 getKind() 동작
 }
+
