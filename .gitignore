@@ -46,3 +46,4 @@ application-local.yml
 *.jpg
 *.jpeg
 *.png
+src/main/resources/application.yml

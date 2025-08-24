@@ -2,6 +2,7 @@ package com.example.hackathon.mypage.service;
 
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
+import com.example.hackathon.dto.mypage.UserMissionSummaryDTO;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
@@ -43,15 +44,14 @@ public class MyPageService {
                 .nickname(u.getNickname())
                 .email(u.getEmail())
                 .birthDate(u.getBirthDate())
-                .job(u.getRole()) // role(String)
+                .job(u.getRole())
                 .regionSido(u.getSido())
                 .regionGungu(u.getSigungu())
                 .regionDong(u.getDong())
                 .preferPlaces(preferPlaces)
-                .ongoingMissions(extractTitlesByStatus(u, MissionStatus.IN_PROGRESS))
-                .completedMissions(extractTitlesByStatus(u, MissionStatus.COMPLETED))
                 .build();
     }
+
 
     // ===== 상단: 내 정보 수정 (PATCH) =====
     @Transactional
@@ -93,13 +93,13 @@ public class MyPageService {
 
     // ===== 진행/완료 목록 =====
     @Transactional(readOnly = true)
-    public List<String> getInProgressMissions(Long userId) {
-        return extractTitlesByStatus(getUser(userId), MissionStatus.IN_PROGRESS);
+    public List<UserMissionSummaryDTO> getInProgressMissions(Long userId) {
+        return extractSummariesByStatus(getUser(userId), MissionStatus.IN_PROGRESS);
     }
 
     @Transactional(readOnly = true)
-    public List<String> getCompletedMissions(Long userId) {
-        return extractTitlesByStatus(getUser(userId), MissionStatus.COMPLETED);
+    public List<UserMissionSummaryDTO> getCompletedMissions(Long userId) {
+        return extractSummariesByStatus(getUser(userId), MissionStatus.COMPLETED);
     }
 
     // ===== 내부 헬퍼 =====
@@ -108,8 +108,7 @@ public class MyPageService {
                 .orElseThrow(() -> new IllegalArgumentException("유저가 존재하지 않습니다. id=" + userId));
     }
 
-    private List<String> extractTitlesByStatus(User user, MissionStatus status) {
-        // UserMission에 title이 직접 있으므로 join fetch 불필요
+    private List<UserMissionSummaryDTO> extractSummariesByStatus(User user, MissionStatus status) {
         var list = em.createQuery("""
                 select um
                   from UserMission um
@@ -122,7 +121,19 @@ public class MyPageService {
                 .getResultList();
 
         return list.stream()
-                .map(UserMission::getTitle)
+                .map(um -> UserMissionSummaryDTO.builder()
+                        .missionId(um.getId())
+                        .category(um.getCategory())
+                        .placeCategory(um.getPlaceCategory())
+                        .title(um.getTitle())
+                        .description(um.getDescription())
+                        .verificationType(um.getVerificationType())
+                        .minAmount(um.getMinAmount())
+                        .rewardPoint(um.getRewardPoint())
+                        .status(um.getStatus())
+                        .startDate(um.getStartDate())
+                        .endDate(um.getEndDate())
+                        .build())
                 .toList();
     }
 }
