@@ -4,11 +4,17 @@ import com.example.hackathon.mission.dto.MissionResponse;
 import lombok.*;
 import java.util.List;
 
-@Data
+@Getter
+@Setter
 @Builder
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 public class HomeCardResponseDTO {
-    private HomeCardDTO homeCard;
-    private List<MissionResponse> missions; // 공용 DTO
+    private int coins;
+    private int level;
+    private String displayName;
+    private double progressPercent;
+    private Long activeCharacterId;
+    private Long activeBackgroundId;
 }
+

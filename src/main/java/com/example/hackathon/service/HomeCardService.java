@@ -1,9 +1,8 @@
+// src/main/java/com/example/hackathon/service/HomeCardService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.dto.CharacterInfoDTO;
-import com.example.hackathon.dto.home.HomeCardDTO;
-import com.example.hackathon.entity.Background;
-import com.example.hackathon.repository.BackgroundRepository;
+import com.example.hackathon.dto.home.HomeCardResponseDTO;
 import com.example.hackathon.repository.CoinsRepository;
 import com.example.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,12 +14,11 @@ public class HomeCardService {
 
     private final UserRepository userRepository;
     private final CoinsRepository coinsRepository;
-    private final BackgroundRepository backgroundRepository;
 
-    // 상점과 홈이 같은 계산을 쓰도록 공용 서비스 사용
+    // 상점과 홈이 같은 캐릭터 계산을 쓰도록 공용 서비스 사용
     private final CharacterQueryService characterQueryService;
 
-    public HomeCardDTO getCardByEmail(String email) {
+    public HomeCardResponseDTO getCardByEmail(String email) {
         // 1) 유저
         var user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("유저를 찾을 수 없습니다."));
@@ -30,23 +28,23 @@ public class HomeCardService {
                 .map(c -> c.getBalance() == null ? 0 : c.getBalance())
                 .orElse(0);
 
-        // 3) 공용 캐릭터 정보 (level, feedProgress, feedsRequiredToNext, activeBackgroundId)
+        // 3) 캐릭터 정보
         CharacterInfoDTO characterInfo = characterQueryService.getCharacterInfo(user.getId());
 
-        // 4) 활성 배경 이름 (표시용)
-        String backgroundName = null;
-        if (characterInfo.getActiveBackgroundId() != null) {
-            backgroundName = backgroundRepository.findById(characterInfo.getActiveBackgroundId())
-                    .map(Background::getName)
-                    .orElse(null);
+        // 4) 진행 퍼센트 계산
+        double progressPercent = 0.0;
+        if (characterInfo.getFeedsRequiredToNext() > 0) {
+            progressPercent = (characterInfo.getFeedProgress() * 100.0) / characterInfo.getFeedsRequiredToNext();
         }
 
-        // 5) 응답
-        return HomeCardDTO.builder()
+        // 5) 응답 DTO 생성
+        return HomeCardResponseDTO.builder()
                 .coins(coins)
-                .characterName("삐약이")   // CharacterEntity에 이름 필드가 생기면 교체
-                .character(characterInfo) // 상점과 동일 구조
-                .backgroundName(backgroundName)
+                .level(characterInfo.getLevel())
+                .displayName(characterInfo.getDisplayName())
+                .progressPercent(progressPercent)
+                .activeCharacterId(characterInfo.getCharacterId())
+                .activeBackgroundId(characterInfo.getActiveBackgroundId())
                 .build();
     }
 }
