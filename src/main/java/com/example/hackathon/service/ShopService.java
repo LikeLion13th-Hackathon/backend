@@ -1,3 +1,4 @@
+// src/main/java/com/example/hackathon/service/ShopService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.common.ForbiddenException;
@@ -41,9 +42,12 @@ public class ShopService {
   private final CharacterSkinRepository skinRepo;
   private final UserSkinRepository userSkinRepo;
 
+  // ✅ 공용 캐릭터 조회 (홈/상점 동일 소스)
+  private final CharacterQueryService characterQueryService;
+
   private static final int FEED_COST = 100; // 먹이 1회 = 100코인
 
-  // -------------------- 유틸 --------------------
+  // -------------------- 내부 유틸 (feedOnce 계산용) --------------------
   private int feedsRequiredFormula(int level) {
     if (level <= 0 || level > 30) throw new IllegalArgumentException("level out of range");
     return (int) ((1L << level) - 1L); // 2^L - 1
@@ -66,13 +70,15 @@ public class ShopService {
   // -------------------- 상단 개요/캐릭터 --------------------
   @Transactional(readOnly = true)
   public ShopOverviewDTO getOverview(Integer userId) {
-    CharacterEntity ch = characterRepo.findByUserId(userId)
-            .orElseThrow(() -> new NotFoundException("character"));
-    int required = feedsRequired(ch.getLevel());
-    int toNext = Math.max(0, required - ch.getFeedProgress());
-    return new ShopOverviewDTO(
-            new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId())
-    );
+    // ✅ 캐릭터 정보는 공용 서비스에서
+    CharacterInfoDTO info = characterQueryService.getCharacterInfo(userId);
+    return new ShopOverviewDTO(info);
+  }
+
+  @Transactional(readOnly = true)
+  public CharacterInfoDTO getCharacterInfo(Integer userId) {
+    // ✅ 캐릭터 정보는 공용 서비스에서
+    return characterQueryService.getCharacterInfo(userId);
   }
 
   @Transactional
@@ -95,19 +101,15 @@ public class ShopService {
     }
     characterRepo.save(ch);
 
+    // 반환은 공용 규격(CharacterInfoDTO) 유지
     int nextReq = feedsRequired(ch.getLevel());
     int toNext = Math.max(0, nextReq - ch.getFeedProgress());
-    return new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId());
-  }
-
-  @Transactional(readOnly = true)
-  public CharacterInfoDTO getCharacterInfo(Integer userId) {
-    CharacterEntity ch = characterRepo.findByUserId(userId)
-            .orElseThrow(() -> new NotFoundException("character"));
-
-    int required = feedsRequired(ch.getLevel());
-    int toNext = Math.max(0, required - ch.getFeedProgress());
-    return new CharacterInfoDTO(ch.getLevel(), ch.getFeedProgress(), toNext, ch.getActiveBackgroundId());
+    return new CharacterInfoDTO(
+            ch.getLevel(),
+            ch.getFeedProgress(),
+            toNext,
+            ch.getActiveBackgroundId()
+    );
   }
 
   // -------------------- 배경 --------------------
@@ -158,7 +160,7 @@ public class ShopService {
             .map(CharacterEntity::getActiveBackgroundId)
             .orElse(null);
 
-    // 이미 보유면 idempotent: 그대로 DTO 반환
+    // 이미 보유면 idempotent
     if (userBgRepo.existsByUserIdAndBackgroundId(userId, backgroundId)) {
       return toBackgroundDTO(bg, true, Objects.equals(activeBg, bg.getId()));
     }
@@ -241,7 +243,7 @@ public class ShopService {
             .map(CharacterEntity::getActiveSkinId)
             .orElse(null);
 
-    // 이미 보유면 idempotent: 그대로 DTO 반환
+    // 이미 보유면 idempotent
     if (userSkinRepo.existsByUserIdAndSkinId(userId, skinId)) {
       return toSkinDTO(skin, true, Objects.equals(activeSkin, skin.getId()));
     }

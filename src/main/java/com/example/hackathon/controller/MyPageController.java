@@ -2,7 +2,7 @@ package com.example.hackathon.controller;
 
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
-import com.example.hackathon.dto.mypage.UserMissionSummaryDTO;
+import com.example.hackathon.mission.dto.MissionResponse;
 import com.example.hackathon.mypage.service.MyPageService;
 import com.example.hackathon.repository.UserRepository;
 import jakarta.servlet.http.HttpSession;
@@ -44,19 +44,20 @@ public class MyPageController {
         return myPageService.updateMyInfo(userId, request);
     }
 
-    /** 진행 중 미션 */
+    // 진행 중 미션
     @GetMapping("/missions/in-progress")
-    public List<UserMissionSummaryDTO> inProgress(@AuthenticationPrincipal Object principal, HttpSession session) {
+    public List<MissionResponse> inProgress(@AuthenticationPrincipal Object principal, HttpSession session) {
         Long userId = resolveUserId(principal, session);
         return myPageService.getInProgressMissions(userId);
     }
 
-    /** 완료 미션 */
+    // 완료 미션
     @GetMapping("/missions/completed")
-    public List<UserMissionSummaryDTO> completed(@AuthenticationPrincipal Object principal, HttpSession session) {
+    public List<MissionResponse> completed(@AuthenticationPrincipal Object principal, HttpSession session) {
         Long userId = resolveUserId(principal, session);
         return myPageService.getCompletedMissions(userId);
     }
+
 
     /** ✅ userId 해석 로직 */
     private Long resolveUserId(Object principal, HttpSession session) {

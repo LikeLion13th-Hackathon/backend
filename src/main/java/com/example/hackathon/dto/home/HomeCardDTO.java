@@ -1,13 +1,15 @@
-// dto/home/HomeCardDTO.java
+// src/main/java/com/example/hackathon/dto/home/HomeCardDTO.java
 package com.example.hackathon.dto.home;
 
+import com.example.hackathon.dto.CharacterInfoDTO;
 import lombok.*;
 
-@Data @Builder @NoArgsConstructor @AllArgsConstructor
+
+
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class HomeCardDTO {
     private int coins;
-    private String characterName;  // 없으면 "삐약이" 같은 고정값
-    private int level;
-    private double expPercent;     // 0~100
-    private String backgroundName; // null 가능
+    private String characterName;      // UI 표시용
+    private CharacterInfoDTO character; // ✅ level, feedProgress, feedsRequiredToNext, activeBackgroundId
+    private String backgroundName;     // 선택
 }
