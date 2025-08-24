@@ -1,35 +1,95 @@
 package com.example.hackathon.ai_custom.service;
 
-import com.example.hackathon.ai_custom.dto.AiMissionRequest;
+import com.example.hackathon.mission.entity.PlaceCategory;
+import com.example.hackathon.receipt.repository.ReceiptRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import lombok.Value;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
-@Service
+/**
+ * 사용자 최근 소비 패턴을 간단 집계:
+ *  - 카테고리 Top-N
+ *  - 주요 시간대(오전/오후/저녁/야간)
+ *
+ * ReceiptRepository의 집계 쿼리(countByCategory, countByHour)를 사용한다.
+ */
+@Component
 @RequiredArgsConstructor
+@Slf4j
 public class MissionPatternAnalyzer {
 
-    private final GeminiClient geminiClient;
+    private final ReceiptRepository receiptRepository;
 
-    public List<String> analyzePattern(AiMissionRequest request) {
-        String prompt = buildPrompt(request);
-        return geminiClient.sendPrompt(prompt); // JSON → List<String> 카테고리 반환
+    /**
+     * @param userId 대상 사용자
+     * @param topN   상위 카테고리 개수 (기본 3 추천)
+     */
+    public Result analyze(Long userId, int topN) {
+        // 1) 카테고리별 카운트
+        Map<PlaceCategory, Long> byCategory = receiptRepository.countByCategory(userId).stream()
+                .filter(arr -> arr != null && arr.length >= 2)
+                .collect(Collectors.toMap(
+                        arr -> (PlaceCategory) arr[0],
+                        arr -> (Long) arr[1]
+                ));
+
+        // 상위 N 카테고리
+        List<PlaceCategory> topCategories = byCategory.entrySet().stream()
+                .sorted((a, b) -> Long.compare(b.getValue(), a.getValue()))
+                .limit(topN)
+                .map(Map.Entry::getKey)
+                .toList();
+
+        // 2) 시간대별 카운트 (HOUR 기준)
+        Map<Integer, Long> byHour = receiptRepository.countByHour(userId).stream()
+                .filter(arr -> arr != null && arr.length >= 2)
+                .collect(Collectors.toMap(
+                        arr -> ((Number) arr[0]).intValue(),
+                        arr -> (Long) arr[1]
+                ));
+
+        // 시간대를 밴드로 묶어서 가장 강한 밴드 찾기
+        Map<HourBand, Long> bandCount = new EnumMap<>(HourBand.class);
+        for (Map.Entry<Integer, Long> e : byHour.entrySet()) {
+            HourBand band = HourBand.of(e.getKey());
+            bandCount.merge(band, e.getValue(), Long::sum);
+        }
+        HourBand peakBand = bandCount.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(HourBand.AFTERNOON); // 기본값
+
+        log.info("[AI] Pattern analyze userId={}, top={}, peakBand={}, rawCat={}, rawHour={}",
+                userId, topCategories, peakBand, byCategory, byHour);
+
+        return new Result(topCategories, peakBand, byCategory, byHour);
     }
 
-    private String buildPrompt(AiMissionRequest request) {
-        return """
-                당신은 사용자의 소비 패턴을 분석하는 AI입니다.
-                입력: 사용자가 최근에 성공한 미션들의 장소 카테고리 리스트
-                예: ["RESTAURANT", "RESTAURANT", "PARK"]
+    /** 시간대 밴드: 오전/오후/저녁/야간 */
+    public enum HourBand {
+        MORNING,     // 06-11
+        AFTERNOON,   // 12-17
+        EVENING,     // 18-22
+        NIGHT;       // 23-05
 
-                규칙:
-                1. 가장 많이 등장한 카테고리를 우선적으로 추천합니다.
-                2. 총 3개의 카테고리를 반환해야 합니다.
-                3. JSON 배열로 출력하세요. 예시:
-                   ["RESTAURANT", "PARK", "CAFE"]
+        public static HourBand of(int hour) {
+            if (hour >= 6 && hour <= 11) return MORNING;
+            if (hour >= 12 && hour <= 17) return AFTERNOON;
+            if (hour >= 18 && hour <= 22) return EVENING;
+            // 23,0,1,2,3,4,5
+            return NIGHT;
+        }
+    }
 
-                최근 사용자 데이터: %s
-                """.formatted(request.getCategories());
+    @Value
+    public static class Result {
+        List<PlaceCategory> topCategories;       // 상위 N 카테고리 (기본 3)
+        HourBand peakHourBand;                   // 주요 시간대 밴드
+        Map<PlaceCategory, Long> rawCategory;    // 카테고리별 카운트
+        Map<Integer, Long> rawHour;              // 시간(0-23)별 카운트
     }
 }

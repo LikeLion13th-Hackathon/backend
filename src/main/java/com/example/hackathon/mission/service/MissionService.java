@@ -1,5 +1,6 @@
 package com.example.hackathon.mission.service;
 
+import com.example.hackathon.ai_custom.service.AiMissionOrchestrator; // ★ 추가
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.entity.*;
 import com.example.hackathon.mission.repository.UserMissionRepository;
@@ -22,13 +23,19 @@ public class MissionService {
     private final UserMissionRepository repo;
     private final ReceiptRepository receiptRepository;
 
+    // ★ 추가: AI 오케스트레이터 주입
+    private final AiMissionOrchestrator aiMissionOrchestrator;
+
     // 데모용: 기간 체크 X
     @Value("${app.mission.verify.period:false}")
     private boolean checkPeriod;
 
-    public MissionService(UserMissionRepository repo, ReceiptRepository receiptRepository) {
+    public MissionService(UserMissionRepository repo,
+                          ReceiptRepository receiptRepository,
+                          AiMissionOrchestrator aiMissionOrchestrator) { // ★ 생성자에 주입
         this.repo = repo;
         this.receiptRepository = receiptRepository;
+        this.aiMissionOrchestrator = aiMissionOrchestrator;
     }
 
     // ===================== 홈화면용 랜덤 미션 =====================
@@ -51,7 +58,6 @@ public class MissionService {
     }
     // ============================================================
 
-
     // ====== 기본 템플릿 (1번 미션) ======
     private static final Map<PlaceCategory, Template> TPL = new EnumMap<>(PlaceCategory.class);
     static {
@@ -71,14 +77,12 @@ public class MissionService {
     // ====== 보조 템플릿 (2번 미션: 금액/리워드/문구를 직접 지정) ======
     private static final Map<PlaceCategory, Template> TPL_ALT = new EnumMap<>(PlaceCategory.class);
     static {
-        // %s 포함: 금액 다르게, 리워드 다르게
         TPL_ALT.put(PlaceCategory.CAFE,               new Template("카페에서 %s원 이상 결제하기",        2000, 150));
         TPL_ALT.put(PlaceCategory.RESTAURANT,         new Template("음식점에서 %s원 이상 결제하기",      5000, 200));
         TPL_ALT.put(PlaceCategory.SHOPPING_MALL,      new Template("쇼핑센터에서 %s원 이상 결제하기",    6000, 200));
         TPL_ALT.put(PlaceCategory.TRADITIONAL_MARKET, new Template("전통 시장에서 %s원 이상 결제하기",    3000, 200));
         TPL_ALT.put(PlaceCategory.OTHER,              new Template("주변 상점에서 %s원 이상 결제하기",    2000, 100));
 
-        // 금액이 제목에 없는 것들은 문구만 자연스럽게 바꿔서 2개 생성
         TPL_ALT.put(PlaceCategory.MUSEUM,          new Template("미술관 관람 영수증 인증하기",     2000, 200));
         TPL_ALT.put(PlaceCategory.LIBRARY,         new Template("도서관 이용 영수증 인증하기",            2000, 100));
         TPL_ALT.put(PlaceCategory.PARK,            new Template("자전거/운동 기구 대여 %원 이상 이용",              2000, 100));
@@ -86,7 +90,6 @@ public class MissionService {
     }
 
     // 회원가입 직후 초기 맞춤 미션 생성
-    // 선호 1개당 "최소 2개"가 되도록 보장 (부족분만 추가). 중복 제목은 건너뜀.
     public void ensureInitialMissions(User user, List<PlaceCategory> prefs) {
         LocalDate start = LocalDate.now();
         LocalDate end = start.plusWeeks(3);
@@ -98,26 +101,22 @@ public class MissionService {
                     user, MissionCategory.CUSTOM, p
             );
 
-            // 이미 가진 제목들(중복 방지)
             Set<String> existingTitles = new HashSet<>();
             for (UserMission um : existing) existingTitles.add(um.getTitle());
 
-            // 2개가 될 때까지 1번/2번 후보를 순서대로 채움
             if (existing.size() < 2) {
                 Template t1 = TPL.getOrDefault(p, TPL.get(PlaceCategory.OTHER));
                 Template t2 = TPL_ALT.getOrDefault(p, TPL_ALT.get(PlaceCategory.OTHER));
 
                 String prefix = (user.getDong()!=null && !user.getDong().isBlank()) ? (user.getDong()+" ") : "";
 
-                // 후보 1
                 String title1 = buildTitle(prefix, t1.pattern(), t1.minAmount());
                 if (!existingTitles.contains(title1)) {
                     repo.save(buildMission(user, p, title1, t1, start, end));
                     existingTitles.add(title1);
-                    existing.add(new UserMission()); // 카운트만 맞추기
+                    existing.add(new UserMission());
                 }
 
-                // 후보 2
                 if (existing.size() < 2) {
                     String title2 = buildTitle(prefix, t2.pattern(), t2.minAmount());
                     if (!existingTitles.contains(title2)) {
@@ -171,7 +170,7 @@ public class MissionService {
         }
         m.setStatus(MissionStatus.IN_PROGRESS);
         m.setStartedAt(LocalDateTime.now());
-        return m;
+        return repo.save(m);
     }
 
     public UserMission completeAuto(User user, Long missionId, Long receiptIdIfAny) {
@@ -184,7 +183,7 @@ public class MissionService {
         if (vt == VerificationType.PHOTO) {
             m.setStatus(MissionStatus.COMPLETED);
             m.setCompletedAt(LocalDateTime.now());
-            return m;
+            return repo.save(m);
         }
 
         if (vt == VerificationType.RECEIPT_OCR) {
@@ -204,7 +203,7 @@ public class MissionService {
         }
         m.setStatus(MissionStatus.COMPLETED);
         m.setCompletedAt(LocalDateTime.now());
-        return m;
+        return repo.save(m);
     }
 
     @Transactional
@@ -245,7 +244,18 @@ public class MissionService {
             if (r.getVerificationStatus() != VerificationStatus.MATCHED) {
                 r.setVerificationStatus(VerificationStatus.MATCHED);
                 r.setRejectReason(null);
+                receiptRepository.save(r);
             }
+
+            UserMission saved = repo.save(m); // ★ 저장 (완료 카운트 반영)
+
+            // ★ 추가: 완료 카운트 → 3개 단위 시 오케스트레이터 호출
+            int completed = repo.countCompletedByUser(user);
+            if (completed % 3 == 0) {
+                aiMissionOrchestrator.recommendNextSet(user.getId().longValue()); // ★ Long으로 보정
+            }
+
+            return saved;
         } else {
             String reason = String.format(
                     "categoryMatched=%s, amountSatisfied=%s, inPeriod=%s (detected=%s, mission=%s, amt=%s/%s, purchaseAt=%s, periodCheck=%s)",
@@ -256,8 +266,6 @@ public class MissionService {
             );
             throw new IllegalStateException("VERIFICATION_FAILED: " + reason);
         }
-
-        return m;
     }
 
     private boolean isWithinPeriod(LocalDateTime purchaseAt, LocalDate start, LocalDate end) {
@@ -268,20 +276,24 @@ public class MissionService {
         return afterOrEqStart && beforeOrEqEnd;
     }
 
+    /**
+     * 포기 시 "처음 상태"로 되돌리기
+     * - 허용 상태: IN_PROGRESS, ABANDONED(중복요청 방지 위해 재초기화 허용)
+     * - 결과: READY, startedAt/completedAt null
+     */
     public UserMission abandon(User user, Long missionId) {
         UserMission m = getUserMission(user, missionId);
-        if (m.getStatus() != MissionStatus.IN_PROGRESS) {
-            throw new IllegalStateException("IN_PROGRESS 상태에서만 포기할 수 있습니다.");
+        if (m.getStatus() != MissionStatus.IN_PROGRESS && m.getStatus() != MissionStatus.ABANDONED) {
+            throw new IllegalStateException("진행 중 또는 이미 포기된 미션에서만 초기화할 수 있습니다.");
         }
-        m.setStatus(MissionStatus.ABANDONED);
-        return m;
+        m.resetToReady();               // ★ 핵심 변경
+        return repo.save(m);
     }
 
     // ============================================================
     // ============ 전체/상태별 조회(레포 수정 없이) =================
     // ============================================================
 
-    /** 해당 유저의 "생성된 모든 미션"을 카테고리별 조회를 합쳐서 반환 (최신 생성순) */
     public List<UserMission> listAllMissions(User user) {
         List<UserMission> all = new ArrayList<>();
         for (MissionCategory c : MissionCategory.values()) {
@@ -292,7 +304,6 @@ public class MissionService {
         return all;
     }
 
-    /** 상태별(IN_PROGRESS/COMPLETED/READY/...) 목록 (메모리 필터) */
     public List<UserMission> listMissionsByStatus(User user, MissionStatus status) {
         if (status == null) return listAllMissions(user);
         return listAllMissions(user).stream()
