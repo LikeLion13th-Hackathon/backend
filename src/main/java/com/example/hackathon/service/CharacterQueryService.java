@@ -58,14 +58,18 @@ public class CharacterQueryService {
         int toNext = Math.max(0, required - ch.getFeedProgress());
         String title = resolveTitle(ch.getKind(), ch.getLevel());
 
-        return new CharacterInfoDTO(
-                ch.getId(),                // ★ characterId
-                ch.getLevel(),
-                ch.getFeedProgress(),
-                toNext,
-                ch.getActiveBackgroundId(),
-                title,                     // ★ 타이틀
-                ch.getDisplayName()        // ★ 유저 설정 이름
-        );
+        return CharacterInfoDTO.builder()
+                .characterId(ch.getId())
+                .characterName(ch.getKind().getDefaultName())  // ✅ 기본 캐릭터 이름
+                .level(ch.getLevel())
+                .feedProgress(ch.getFeedProgress())
+                .feedsRequiredToNext(required)
+                .activeBackgroundId(ch.getActiveBackgroundId())
+                .title(title)
+                .displayName(ch.getDisplayName())              // 유저가 설정한 이름
+                .build();
+
+
+
     }
 }
