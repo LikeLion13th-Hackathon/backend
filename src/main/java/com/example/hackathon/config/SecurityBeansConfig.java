@@ -4,7 +4,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
-// ★ 추가 import
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -19,19 +18,24 @@ public class SecurityBeansConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // ★ 추가: Spring Security가 참조할 전역 CORS 설정
+    // Spring Security 전역 CORS
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "https://hakathontest.netlify.app",
-                "http://localhost:3000"
+
+        // 프리뷰까지 열려면 패턴 사용
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:3000",
+                "https://missionpick.netlify.app",
+                "https://*.netlify.app" // (선택) Netlify Deploy Preview
         ));
+
         config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
-        // 필요 시 노출 헤더
-        // config.setExposedHeaders(List.of("Authorization","Location"));
+        // 필요시 노출 헤더
+        // config.setExposedHeaders(List.of("Authorization","Location","Link","X-Total-Count"));
+        config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);

@@ -10,9 +10,13 @@ public class WebConfig implements WebMvcConfigurer {
   @Override
   public void addCorsMappings(CorsRegistry registry) {
     registry.addMapping("/**")
-      .allowedOrigins("http://localhost:3000", "https://hakathontest.netlify.app") // 프론트 주소
-      .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-      .allowedHeaders("*")
-      .allowCredentials(true);
+            // allowedOrigins는 와일드카드 불가 → 배포/로컬만 정확히 기입
+            .allowedOrigins(
+                    "http://localhost:3000",
+                    "https://missionpick.netlify.app"
+            )
+            .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+            .allowedHeaders("*")
+            .allowCredentials(true);
   }
 }
