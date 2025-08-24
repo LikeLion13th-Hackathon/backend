@@ -3,13 +3,13 @@ package com.example.hackathon.mission.controller;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.dto.CompleteRequest;
 import com.example.hackathon.mission.dto.MissionResponse;
+import com.example.hackathon.mission.entity.MissionCategory;
 import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.mission.service.MissionService;
 import com.example.hackathon.repository.UserRepository;
 import com.example.hackathon.service.CoinService;
-import com.example.hackathon.ai_custom.service.AiMissionService; // ★ AI 트리거용
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -28,7 +28,6 @@ public class MissionController {
     private final MissionService missionService;
     private final UserRepository userRepository;
     private final CoinService coinService;
-    private final AiMissionService aiMissionService; // ★ 완료 시 트리거
 
     // ===================== 공통 유틸 =====================
 
@@ -51,13 +50,21 @@ public class MissionController {
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
     }
 
-    // ===================== 기존 API =====================
+    // ===================== 목록/조회 =====================
 
-    /** 전체/상태별 목록 */
+    /**
+     * 전체/상태별(+선택: 카테고리 필터) 목록
+     * 사용 예:
+     *   - GET /api/missions
+     *   - GET /api/missions?status=COMPLETED
+     *   - GET /api/missions?category=AI_CUSTOM
+     *   - GET /api/missions?status=READY&category=AI_CUSTOM
+     */
     @GetMapping
     public ResponseEntity<?> listAllOrByStatus(
             HttpServletRequest request,
-            @RequestParam(required = false) MissionStatus status
+            @RequestParam(required = false) MissionStatus status,
+            @RequestParam(required = false) MissionCategory category
     ) {
         User user = currentUser(request);
 
@@ -65,11 +72,15 @@ public class MissionController {
                 ? missionService.listAllMissions(user)
                 : missionService.listMissionsByStatus(user, status);
 
+        if (category != null) {
+            list = list.stream().filter(m -> m.getCategory() == category).toList();
+        }
+
         var res = list.stream().map(MissionController::toDto).toList();
         return ResponseEntity.ok(res);
     }
 
-    /** 진행중만 */
+    /** 진행중만 (편의용) */
     @GetMapping("/in-progress")
     public ResponseEntity<?> listInProgress(HttpServletRequest request) {
         User user = currentUser(request);
@@ -78,7 +89,7 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
-    /** 완료만 */
+    /** 완료만 (편의용) */
     @GetMapping("/completed")
     public ResponseEntity<?> listCompleted(HttpServletRequest request) {
         User user = currentUser(request);
@@ -114,6 +125,8 @@ public class MissionController {
         return ResponseEntity.ok(toDto(m));
     }
 
+    // ===================== 상태 변경 =====================
+
     /** 시작 */
     @PostMapping("/{id:\\d+}/start")
     public ResponseEntity<?> startMission(HttpServletRequest request, @PathVariable Long id){
@@ -123,9 +136,9 @@ public class MissionController {
     }
 
     /**
-     * ✅ 완료
-     * - MissionService.completeAuto(...) 안에서 @Transactional 로 상태가 DB에 반영된 뒤
-     *   여기서 보상 지급 → AI 생성 트리거 순으로 호출한다.
+     * 완료(자동 판단: PHOTO/RECEIPT_OCR)
+     * - OCR 미션이면 body.receiptId 필요
+     * - 서비스 내부 트랜잭션에서 저장 후, 완료되면 코인 지급
      */
     @PostMapping("/{id:\\d+}/complete")
     public ResponseEntity<?> completeMission(HttpServletRequest request,
@@ -134,13 +147,12 @@ public class MissionController {
         User user = currentUser(request);
         Long receiptId = (body != null ? body.getReceiptId() : null);
 
-        // 1) 완료 처리 (서비스 내부 트랜잭션에서 저장/flush/커밋)
+        // 1) 완료 처리
         UserMission m = missionService.completeAuto(user, id, receiptId);
 
-        // 2) 완료가 확정된 경우에만 보상 + AI 트리거
+        // 2) 완료 확정 시 보상
         if (m.getStatus() == MissionStatus.COMPLETED) {
             coinService.addCoins(user, m.getRewardPoint());
-            aiMissionService.handleMissionSuccess(user.getId().longValue()); // ★ AI 생성 트리거
         }
 
         return ResponseEntity.ok(toDto(m));

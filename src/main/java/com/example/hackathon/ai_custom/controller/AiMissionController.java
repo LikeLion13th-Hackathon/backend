@@ -1,24 +1,22 @@
 package com.example.hackathon.ai_custom.controller;
 
-import com.example.hackathon.ai_custom.dto.AiMissionResult;
-import com.example.hackathon.ai_custom.service.AiMissionService;
+import com.example.hackathon.ai_custom.service.AiMissionOrchestrator;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/missions/ai")
 @RequiredArgsConstructor
 public class AiMissionController {
 
-    private final AiMissionService aiMissionService;
+    private final AiMissionOrchestrator aiMissionOrchestrator; // ✅ 새 오케스트레이터 사용
     private final UserRepository userRepository;
 
     // ===== 공통 유틸 =====
@@ -27,7 +25,7 @@ public class AiMissionController {
         if (auth != null && StringUtils.hasText(auth.getName()) && !"anonymousUser".equals(auth.getName())) {
             return auth.getName();
         }
-        String header = request.getHeader("X-USER-EMAIL"); // Postman 테스트용
+        String header = request.getHeader("X-USER-EMAIL"); // Postman 등 테스트용
         return StringUtils.hasText(header) ? header : null;
     }
 
@@ -40,24 +38,14 @@ public class AiMissionController {
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 유저가 없습니다: " + email));
     }
 
-    /** 사용자 맞춤 미션 전체 조회 (최대 3개) */
-    @GetMapping
-    public List<AiMissionResult> getUserAiMissions(HttpServletRequest request) {
-        User user = currentUser(request);
-        return aiMissionService.getUserAiMissions(user.getId().longValue()); // ✅ Integer -> Long
-    }
-
-    /** 맞춤 미션 단건 조회 (숫자만 매칭되도록 정규식) */
-    @GetMapping("/{missionId:\\d+}")
-    public AiMissionResult getUserAiMissionById(HttpServletRequest request,
-                                                @PathVariable Long missionId) {
-        User user = currentUser(request);
-        return aiMissionService.getUserAiMissionById(user.getId().longValue(), missionId); // ✅ Integer -> Long
-    }
-
+    /**
+     * [테스트/데모용] AI 추천 미션을 수동으로 생성
+     * - 실제 운영 흐름은 영수증 OCR 인증 완료 3개마다 자동 생성됨
+     */
     @PostMapping("/generate")
-    public void generateAiMissions(HttpServletRequest request) {
-        User user = currentUser(request);                 // X-USER-EMAIL 헤더 or 인증에서 이메일 꺼냄
-        aiMissionService.handleMissionSuccess(user.getId().longValue());
+    public ResponseEntity<Void> generateAiMissions(HttpServletRequest request) {
+        User user = currentUser(request);
+        aiMissionOrchestrator.recommendNextSet(user.getId().longValue());
+        return ResponseEntity.noContent().build(); // 204
     }
 }

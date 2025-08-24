@@ -68,4 +68,16 @@ public class UserMission {
     // 진행 타임라인
     private LocalDateTime startedAt;
     private LocalDateTime completedAt;
+
+    /**
+     * 포기 시 "처음 상태"로 되돌리기 위한 초기화 메서드
+     * - 상태를 READY 로 변경
+     * - 타임라인 필드 초기화
+     * 필요 시 검증/진행 관련 추가 필드가 있다면 여기서 함께 초기화
+     */
+    public void resetToReady() {
+        this.status = MissionStatus.READY;
+        this.startedAt = null;
+        this.completedAt = null;
+    }
 }

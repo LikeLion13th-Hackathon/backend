@@ -2,6 +2,7 @@ package com.example.hackathon.mission.repository;
 
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.entity.MissionCategory;
+import com.example.hackathon.mission.entity.MissionStatus;
 import com.example.hackathon.mission.entity.PlaceCategory;
 import com.example.hackathon.mission.entity.UserMission;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -41,14 +42,19 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
             "WHERE um.user = :user AND um.category = :category " +
             "ORDER BY um.createdAt ASC")
     List<UserMission> findMissionsByUserAndCategory(@Param("user") User user,
-            @Param("category") MissionCategory category);
+                                                    @Param("category") MissionCategory category);
 
     // 단건
     @Query("SELECT um FROM UserMission um " +
             "WHERE um.id = :id AND um.user = :user AND um.category = :category")
     Optional<UserMission> findMissionByIdAndUserAndCategory(@Param("id") Long id,
-            @Param("user") User user,
-            @Param("category") MissionCategory category);
+                                                            @Param("user") User user,
+                                                            @Param("category") MissionCategory category);
 
     boolean existsByUserAndCategory(User user, MissionCategory category);
+
+    // ✅ 추가: 유저별 완료된 미션 개수 카운트
+    @Query("SELECT COUNT(um) FROM UserMission um " +
+            "WHERE um.user = :user AND um.status = com.example.hackathon.mission.entity.MissionStatus.COMPLETED")
+    int countCompletedByUser(@Param("user") User user);
 }
