@@ -19,6 +19,9 @@ public class UserService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
+    // ★ 추가: 회원가입 직후 기본 캐릭터(삐약이) 보장
+    private final CharacterCommandService characterCommandService;
+
     @Transactional
     public Integer register(SignUpRequest req) {
         if (userRepository.existsByEmail(req.email())) {
@@ -27,31 +30,35 @@ public class UserService {
         String hash = passwordEncoder.encode(req.password());
 
         User saved = userRepository.save(
-            User.builder()
-                .nickname(req.nickname())
-                .email(req.email())
-                .passwordHash(hash)
-                .birthDate(req.birthDate())
-                .sido(req.sido())
-                .sigungu(req.sigungu())
-                .dong(req.dong())
-                .role(req.role())
-                    .pref1(req.pref1())
-                    .pref2(req.pref2())
-                    .pref3(req.pref3())
-                .locationConsent(req.locationConsent())
-                .marketingConsent(req.marketingConsent())
-                .serviceAgreed(req.serviceAgreed())
-                .privacyAgreed(req.privacyAgreed())
-                .build()
+                User.builder()
+                        .nickname(req.nickname())
+                        .email(req.email())
+                        .passwordHash(hash)
+                        .birthDate(req.birthDate())
+                        .sido(req.sido())
+                        .sigungu(req.sigungu())
+                        .dong(req.dong())
+                        .role(req.role())
+                        .pref1(req.pref1())
+                        .pref2(req.pref2())
+                        .pref3(req.pref3())
+                        .locationConsent(req.locationConsent())
+                        .marketingConsent(req.marketingConsent())
+                        .serviceAgreed(req.serviceAgreed())
+                        .privacyAgreed(req.privacyAgreed())
+                        .build()
         );
+
+        // ★ 핵심: 기본 캐릭터 생성/보장 (kind=CHICK, displayName="삐약이", level=1, feedProgress=0)
+        characterCommandService.ensureDefaultCharacter(saved.getId());
+
         return saved.getId();
     }
 
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest req) {
         User user = userRepository.findByEmail(req.email())
-            .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
 
         if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
