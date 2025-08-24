@@ -1,4 +1,3 @@
-// 남길 최종본
 package com.example.hackathon.repository;
 
 import com.example.hackathon.entity.Background;

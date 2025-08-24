@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AiMissionController {
 
-    private final AiMissionOrchestrator aiMissionOrchestrator; // ✅ 새 오케스트레이터 사용
+    private final AiMissionOrchestrator aiMissionOrchestrator;
     private final UserRepository userRepository;
 
     // ===== 공통 유틸 =====
@@ -39,13 +39,13 @@ public class AiMissionController {
     }
 
     /**
-     * [테스트/데모용] AI 추천 미션을 수동으로 생성
-     * - 실제 운영 흐름은 영수증 OCR 인증 완료 3개마다 자동 생성됨
+     * [테스트용] AI 추천 미션을 수동으로 생성
+     * 실제 운영 흐름은 영수증 OCR 인증 완료 3개마다 자동 생성됨
      */
     @PostMapping("/generate")
     public ResponseEntity<Void> generateAiMissions(HttpServletRequest request) {
         User user = currentUser(request);
         aiMissionOrchestrator.recommendNextSet(user.getId().longValue());
-        return ResponseEntity.noContent().build(); // 204
+        return ResponseEntity.noContent().build(); 
     }
 }

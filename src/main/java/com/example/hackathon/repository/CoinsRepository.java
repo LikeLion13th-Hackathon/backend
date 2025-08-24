@@ -8,10 +8,10 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
-public interface CoinsRepository extends JpaRepository<Coin, Long> { // ← Long으로 수정!
+public interface CoinsRepository extends JpaRepository<Coin, Long> { 
 
   // 코인 잔액 조회 (User FK로 탐색)
-  Optional<Coin> findByUser_Id(Integer userId); // ← 추가
+  Optional<Coin> findByUser_Id(Integer userId); 
 
   // user_id 기준 잔액 차감
   @Modifying(clearAutomatically = true, flushAutomatically = true)

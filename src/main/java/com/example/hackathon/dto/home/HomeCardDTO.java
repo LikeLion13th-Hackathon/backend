@@ -10,6 +10,6 @@ import lombok.*;
 public class HomeCardDTO {
     private int coins;
     private String characterName;      // UI 표시용
-    private CharacterInfoDTO character; // ✅ level, feedProgress, feedsRequiredToNext, activeBackgroundId
+    private CharacterInfoDTO character; // level, feedProgress, feedsRequiredToNext, activeBackgroundId
     private String backgroundName;     // 선택
 }

@@ -33,7 +33,6 @@ public class CurrentUserResolver {
             try {
                 var key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
 
-                // jjwt 0.12.x 스타일 파싱
                 Claims claims = Jwts.parser()
                         .verifyWith(key)
                         .build()

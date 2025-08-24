@@ -21,7 +21,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                .cors(Customizer.withDefaults()) // ★ Security 레이어 CORS 활성화
+                .cors(Customizer.withDefaults()) // Security 레이어 CORS 활성화
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
@@ -30,14 +30,14 @@ public class SecurityConfig {
                                 "/css/**", "/js/**", "/images/**"
                         ).permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
-                        // ★ 프리플라이트 전부 허용
+                        // 프리플라이트 전부 허용
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // 필요 시 헬스체크 공개
                         .requestMatchers(HttpMethod.GET, "/actuator/health").permitAll()
                         .anyRequest().authenticated()
                 );
 
-        // ★ JWT 필터는 UsernamePasswordAuthenticationFilter 앞에
+        // JWT 필터는 UsernamePasswordAuthenticationFilter 앞에
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

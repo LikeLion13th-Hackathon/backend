@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/dto/SkinDTO.java
 package com.example.hackathon.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -16,7 +15,7 @@ public class SkinDTO {
     private int priceCoins;
     private boolean owned;
     private boolean active;
-    private Integer balance; // ★ 추가
+    private Integer balance;
 
     // 조회/목록용(잔액 없이) 생성자
     public SkinDTO(Long skinId, String name, int priceCoins, boolean owned, boolean active) {

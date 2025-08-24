@@ -19,7 +19,7 @@ public class HackathonApplication {
 	}
 
 	/**
-	 * ✅ 애플리케이션 기동 시 DataSource로 커넥션만 가볍게 확인합니다.
+	 * 애플리케이션 기동 시 DataSource로 커넥션만 가볍게 확인합니다.
 	 * DriverManager로 직접 접속하지 않습니다.
 	 * 문제가 없으면 URL/USER 로그만 남기고 바로 종료합니다.
 	 */

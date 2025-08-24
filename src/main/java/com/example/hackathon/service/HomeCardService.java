@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/service/HomeCardService.java
 package com.example.hackathon.service;
 
 import com.example.hackathon.dto.CharacterInfoDTO;
@@ -18,7 +17,7 @@ public class HomeCardService {
     private final CoinsRepository coinsRepository;
     private final BackgroundRepository backgroundRepository;
 
-    // ✅ 상점과 홈이 같은 계산을 쓰도록 공용 서비스 사용
+    // 상점과 홈이 같은 계산을 쓰도록 공용 서비스 사용
     private final CharacterQueryService characterQueryService;
 
     public HomeCardDTO getCardByEmail(String email) {
@@ -46,7 +45,7 @@ public class HomeCardService {
         return HomeCardDTO.builder()
                 .coins(coins)
                 .characterName("삐약이")   // CharacterEntity에 이름 필드가 생기면 교체
-                .character(characterInfo) // ✅ 상점과 동일 구조
+                .character(characterInfo) // 상점과 동일 구조
                 .backgroundName(backgroundName)
                 .build();
     }

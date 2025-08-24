@@ -1,5 +1,4 @@
-// src/main/java/com/example/hackathon/mypage/service/MyPageService.java
-package com.example.hackathon.mypage.service;
+package com.example.hackathon.service;
 
 import com.example.hackathon.dto.mypage.MyPageResponseDTO;
 import com.example.hackathon.dto.mypage.MyPageUpdateDTO;
@@ -120,6 +119,6 @@ public class MyPageService {
                 .setParameter("status", status)
                 .getResultList();
 
-        return MissionResponse.fromList(list); // ✅ 공용 변환기
+        return MissionResponse.fromList(list); // 공용 변환기
     }
 }

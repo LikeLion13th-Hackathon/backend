@@ -11,35 +11,27 @@ import java.util.Optional;
 
 public interface AiUserMissionRepository extends JpaRepository<UserMission, Long> {
 
-    /**
-     * ✅ 해당 유저의 완료된 미션 개수
-     */
+    // 해당 유저의 완료된 미션 개수
     @Query("SELECT COUNT(m) FROM UserMission m " +
             "WHERE m.user.id = :userId " +
             "AND m.status = com.example.hackathon.mission.entity.MissionStatus.COMPLETED")
     int countByUserIdAndStatusCompleted(@Param("userId") Long userId);
 
-    /**
-     * ✅ 해당 유저의 완료된 미션 목록 (최근 완료 순)
-     */
+    // 해당 유저의 완료된 미션 목록 (최근 완료 순)
     @Query("SELECT m FROM UserMission m " +
             "WHERE m.user.id = :userId " +
             "AND m.status = com.example.hackathon.mission.entity.MissionStatus.COMPLETED " +
             "ORDER BY m.completedAt DESC")
     List<UserMission> findCompletedMissions(@Param("userId") Long userId);
 
-    /**
-     * ✅ AI_CUSTOM 미션 목록 조회 (최신순)
-     */
+    // AI_CUSTOM 미션 목록 조회 (최신순)
     @Query("SELECT m FROM UserMission m " +
             "WHERE m.user.id = :userId " +
             "AND m.category = com.example.hackathon.mission.entity.MissionCategory.AI_CUSTOM " +
             "ORDER BY m.createdAt DESC")
     List<UserMission> findAiCustomMissions(@Param("userId") Long userId);
 
-    /**
-     * ✅ 특정 AI_CUSTOM 미션 단건 조회
-     */
+    // 특정 AI_CUSTOM 미션 단건 조회
     @Query("SELECT m FROM UserMission m " +
             "WHERE m.user.id = :userId " +
             "AND m.category = com.example.hackathon.mission.entity.MissionCategory.AI_CUSTOM " +
@@ -47,11 +39,11 @@ public interface AiUserMissionRepository extends JpaRepository<UserMission, Long
     Optional<UserMission> findAiCustomMissionById(@Param("userId") Long userId,
                                                   @Param("missionId") Long missionId);
 
-    /**
-     * ✅ AI_CUSTOM 미션 INSERT (status=READY)
-     *  - start_date/end_date를 함께 저장 (기본 7일 유효기간)
-     *  - 컬럼이 DATE 타입이면 CURDATE() 사용, DATETIME이면 NOW()로 교체
-     */
+    /*
+     AI_CUSTOM 미션 INSERT (status=READY)
+     start_date/end_date를 함께 저장 (기본 7일 유효기간)
+     컬럼이 DATE 타입이면 CURDATE() 사용, DATETIME이면 NOW()로 교체
+        */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
             INSERT INTO user_mission

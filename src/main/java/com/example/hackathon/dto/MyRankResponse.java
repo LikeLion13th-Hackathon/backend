@@ -1,4 +1,3 @@
-// src/main/java/com/example/hackathon/dto/MyRankResponse.java
 package com.example.hackathon.dto;
 
 import lombok.*;

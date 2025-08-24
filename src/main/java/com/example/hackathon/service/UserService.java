@@ -19,7 +19,7 @@ public class UserService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
 
-    // ★ 추가: 회원가입 직후 기본 캐릭터(삐약이) 보장
+    // 회원가입 직후 기본 캐릭터(삐약이) 보장
     private final CharacterCommandService characterCommandService;
 
     @Transactional
@@ -49,7 +49,7 @@ public class UserService {
                         .build()
         );
 
-        // ★ 핵심: 기본 캐릭터 생성/보장 (kind=CHICK, displayName="삐약이", level=1, feedProgress=0)
+        // 핵심: 기본 캐릭터 생성/보장 (kind=CHICK, displayName="삐약이", level=1, feedProgress=0)
         characterCommandService.ensureDefaultCharacter(saved.getId());
 
         return saved.getId();
