@@ -67,8 +67,7 @@ public class MissionController {
     public ResponseEntity<List<MissionResponse>> listAllOrByStatus(
             HttpServletRequest request,
             @RequestParam(required = false) MissionStatus status,
-            @RequestParam(required = false) MissionCategory category
-    ) {
+            @RequestParam(required = false) MissionCategory category) {
         User user = currentUser(request);
 
         List<UserMission> list = (status == null)
@@ -80,7 +79,7 @@ public class MissionController {
         }
 
         List<MissionResponse> res = list.stream()
-                .map(MissionResponse::from)   // 공용 변환
+                .map(MissionResponse::from) // 공용 변환
                 .toList();
 
         return ResponseEntity.ok(res);
@@ -104,24 +103,46 @@ public class MissionController {
         return ResponseEntity.ok(res);
     }
 
+    // /** 맞춤(사용자 선호 기반) 목록 */
+    // @GetMapping("/custom")
+    // public ResponseEntity<List<MissionResponse>>
+    // listCustomMissions(HttpServletRequest request) {
+    // User user = currentUser(request);
+
+    // List<PlaceCategory> prefs = List.of(
+    // user.getPref1(),
+    // user.getPref2(),
+    // user.getPref3()
+    // );
+
+    // // 최초 진입 시 기본 미션 보장
+    // missionService.ensureInitialMissions(user, prefs);
+
+    // List<MissionResponse> res = missionService.listCustomMissions(user)
+    // .stream().map(MissionResponse::from).toList(); // 공용 변환
+    // return ResponseEntity.ok(res);
+    // }
     /** 맞춤(사용자 선호 기반) 목록 */
-    @GetMapping("/custom")
-    public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
-        User user = currentUser(request);
+@GetMapping("/custom")
+public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
+    User user = currentUser(request);
 
-        List<PlaceCategory> prefs = List.of(
-                user.getPref1(),
-                user.getPref2(),
-                user.getPref3()
-        );
+    // 현재 사용자 선호 장소(pref1~3)
+    List<PlaceCategory> prefs = List.of(
+            user.getPref1(),
+            user.getPref2(),
+            user.getPref3()
+    );
 
-        // 최초 진입 시 기본 미션 보장
-        missionService.ensureInitialMissions(user, prefs);
+    // 완전히 리프레시
+    missionService.syncCustomMissions(user, prefs);
 
-        List<MissionResponse> res = missionService.listCustomMissions(user)
-                .stream().map(MissionResponse::from).toList(); // 공용 변환
-        return ResponseEntity.ok(res);
-    }
+    // DB에서 방금 새로 생성된 미션만 가져오기
+    List<MissionResponse> res = missionService.listCustomMissions(user)
+            .stream().map(MissionResponse::from).toList();
+
+    return ResponseEntity.ok(res);
+}
 
     /** 상세 조회 — 숫자만 매칭되도록 정규식 추가(비숫자 경로와 충돌 방지) */
     @GetMapping("/{id:\\d+}")
@@ -150,8 +171,7 @@ public class MissionController {
     public ResponseEntity<MissionResponse> completeMission(
             HttpServletRequest request,
             @PathVariable Long id,
-            @RequestBody(required = false) CompleteRequest body
-    ) {
+            @RequestBody(required = false) CompleteRequest body) {
         User user = currentUser(request);
         Long receiptId = (body != null ? body.getReceiptId() : null);
 
@@ -171,7 +191,7 @@ public class MissionController {
     public ResponseEntity<MissionResponse> abandonMission(HttpServletRequest request, @PathVariable Long id) {
         User user = currentUser(request);
         UserMission m = missionService.abandon(user, id);
-        return ResponseEntity.ok(MissionResponse.from(m)); // ✅ 공용 변환
+        return ResponseEntity.ok(MissionResponse.from(m)); // 공용 변환
     }
 
     // ===================== 소비 통계 =====================
@@ -185,8 +205,7 @@ public class MissionController {
         var res = rows.stream().map(r -> Map.<String, Object>of(
                 "month", r[0],
                 "totalAmount", r[1],
-                "missionsCompleted", r[2]
-        )).toList();
+                "missionsCompleted", r[2])).toList();
 
         return ResponseEntity.ok(res);
     }
@@ -201,8 +220,7 @@ public class MissionController {
                 "month", r[0],
                 "placeCategory", r[1],
                 "totalAmount", r[2],
-                "missionsCompleted", r[3]
-        )).toList();
+                "missionsCompleted", r[3])).toList();
 
         return ResponseEntity.ok(res);
     }

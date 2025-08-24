@@ -1,5 +1,6 @@
 package com.example.hackathon.receipt.repository;
 
+import com.example.hackathon.mission.entity.UserMission;
 import com.example.hackathon.receipt.OcrStatus;
 import com.example.hackathon.receipt.entity.Receipt;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -84,5 +85,7 @@ public interface ReceiptRepository extends JpaRepository<Receipt, Long> {
             and r.amount is not null
       """)
   Double averageAmount(@Param("userId") Long userId);
+
+  void deleteAllByUserMission(UserMission mission);
 
 }

@@ -58,5 +58,10 @@ public interface UserMissionRepository extends JpaRepository<UserMission, Long> 
                         "WHERE um.user = :user AND um.status = com.example.hackathon.mission.entity.MissionStatus.COMPLETED")
         int countCompletedByUser(@Param("user") User user);
 
-        
+        List<UserMission> findByUserAndCategory(User user, MissionCategory category);
+
+        void deleteByUserAndCategory(User user, MissionCategory category);
+
+        // 특정 카테고리별 조회
+        List<UserMission> findByUserAndCategoryAndPlaceCategory(User user, MissionCategory category, PlaceCategory placeCategory);
 }

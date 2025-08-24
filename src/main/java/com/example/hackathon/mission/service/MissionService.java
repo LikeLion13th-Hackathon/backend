@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -330,4 +331,56 @@ public class MissionService {
     public Double getAverageSpending(User user) {
         return receiptRepository.averageAmount(user.getId().longValue());
     }
+
+    /**
+     * 사용자의 선호 장소 기반으로 미션 동기화
+     * - 빠진 카테고리는 관련 미션 + 영수증 전부 삭제
+     * - 새로 추가된 카테고리는 미션 새로 생성
+     */
+    @Transactional
+    public void syncCustomMissions(User user, List<PlaceCategory> newPrefs) {
+        // 현재 사용자 커스텀 미션 목록
+        List<UserMission> current = repo.findByUserAndCategory(user, MissionCategory.CUSTOM);
+        Set<PlaceCategory> currentCats = current.stream()
+                .map(UserMission::getPlaceCategory)
+                .collect(Collectors.toSet());
+
+        Set<PlaceCategory> newCats = new HashSet<>(newPrefs);
+
+        // (1) 빠진 카테고리 미션 삭제 (영수증도 같이 삭제)
+        Set<PlaceCategory> toRemove = new HashSet<>(currentCats);
+        toRemove.removeAll(newCats);
+
+        for (PlaceCategory cat : toRemove) {
+            List<UserMission> missions = repo.findByUserAndCategoryAndPlaceCategory(user, MissionCategory.CUSTOM, cat);
+            for (UserMission m : missions) {
+                receiptRepository.deleteAllByUserMission(m); // 영수증 삭제
+                repo.delete(m);             // 미션 삭제
+            }
+        }
+
+        // (2) 새로 추가된 카테고리 미션 생성
+        Set<PlaceCategory> toAdd = new HashSet<>(newCats);
+        toAdd.removeAll(currentCats);
+
+        for (PlaceCategory cat : toAdd) {
+            for (int i = 0; i < 2; i++) {
+                UserMission mission = UserMission.builder()
+                        .user(user)
+                        .category(MissionCategory.CUSTOM)
+                        .placeCategory(cat)
+                        .title(cat.name() + " 관련 미션 " + (i + 1))
+                        .description(cat.name() + " 관련 설명")
+                        .verificationType(VerificationType.RECEIPT_OCR)
+                        .status(MissionStatus.READY)
+                        .startDate(LocalDate.now())
+                        .endDate(LocalDate.now().plusDays(14))
+                        .rewardPoint(100)
+                        .build();
+
+                repo.save(mission);
+            }
+        }
+    }
 }
+
