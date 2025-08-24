@@ -13,9 +13,17 @@ import com.example.hackathon.entity.CharacterEntity;
 import com.example.hackathon.entity.CharacterLevelRequirement;
 import com.example.hackathon.entity.CharacterSkin;
 import com.example.hackathon.entity.Coin;
+import com.example.hackathon.entity.User;
 import com.example.hackathon.entity.UserBackground;
 import com.example.hackathon.entity.UserSkin;
-import com.example.hackathon.repository.*;
+import com.example.hackathon.repository.BackgroundRepository;
+import com.example.hackathon.repository.CharacterRepository;
+import com.example.hackathon.repository.CharacterSkinRepository;
+import com.example.hackathon.repository.CoinsRepository;
+import com.example.hackathon.repository.LevelReqRepository;
+import com.example.hackathon.repository.UserBackgroundRepository;
+import com.example.hackathon.repository.UserRepository;
+import com.example.hackathon.repository.UserSkinRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +44,9 @@ public class ShopService {
   // 스킨
   private final CharacterSkinRepository skinRepo;
   private final UserSkinRepository userSkinRepo;
+
+  // ✅ 유저(표시명) 조회용
+  private final UserRepository userRepo;
 
   // ✅ 공용 캐릭터 조회 (홈/상점 동일 소스)
   private final CharacterQueryService characterQueryService;
@@ -76,12 +87,35 @@ public class ShopService {
     return new SkinDTO(s.getId(), s.getName(), s.getPriceCoins(), owned, active);
   }
 
+  private String resolveUserSettingName(User user) {
+    // 1순위: nickname
+    if (user.getNickname() != null && !user.getNickname().isBlank()) {
+      return user.getNickname();
+    }
+    // 2순위: 이메일 local-part
+    if (user.getEmail() != null) {
+      int at = user.getEmail().indexOf('@');
+      return at > 0 ? user.getEmail().substring(0, at) : user.getEmail();
+    }
+    // 3순위: fallback
+    return "User-" + user.getId();
+  }
+
+
   // -------------------- 상단 개요/캐릭터 --------------------
   @Transactional(readOnly = true)
   public ShopOverviewDTO getOverview(Integer userId) {
     CharacterInfoDTO info = characterQueryService.getCharacterInfo(userId);
-    return new ShopOverviewDTO(info);
+
+    User user = userRepo.findById(userId)
+            .orElseThrow(() -> new NotFoundException("user"));
+
+    return ShopOverviewDTO.builder()
+            .character(info)
+            .userSettingName(resolveUserSettingName(user))
+            .build();
   }
+
 
   @Transactional(readOnly = true)
   public CharacterInfoDTO getCharacterInfo(Integer userId) {
