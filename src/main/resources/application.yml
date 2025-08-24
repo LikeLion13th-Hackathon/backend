@@ -1,11 +1,11 @@
 server:
-  port: 8080
+  port: 8086
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/hackathon?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&createDatabaseIfNotExist=true
-    username: root
-    password: 123456
+    url: jdbc:mysql://localhost:3307/hackathon?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Seoul&createDatabaseIfNotExist=true
+    username: hackathon
+    password: 1125
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   h2:
@@ -32,6 +32,7 @@ logging:
   level:
     org.hibernate.SQL: debug
     org.hibernate.orm.jdbc.bind: trace
+    com.example.hackathon.ai_custom: info   # ★ AI 미션 관련 로그
 
 app:
   jwt:
@@ -40,9 +41,12 @@ app:
 
   # 업로드 저장 루트 (배포할 때 변경할 곳)
   upload:
-    base-dir: /home/ec2-user/uploads/receipts
+    base-dir: D:/Hackathon/backend/uploads/receipts
 
 clova:
   ocr:
     url: "https://6ub5hbkrwr.apigw.ntruss.com/custom/v1/45351/052f462209b7ff5e6202c6210292b33d5591684185839f2274abeca506ce4dfb/general"
-    secret: "ZEctMUGZMenJ2TUFKTmJ5ck1JS2laaUxLeGRKcXNjSXc="
+    secret: "ZEtMUGZMenJ2TUFKTmJ5ck1JS2laaUxLeGRKcXNjSXc="
+
+gemini:
+  api-key: ${GEMINI_API_KEY:AIzaSyB3HkWVuOt-PGse_aNyLfLzWrByigvWrbE}
