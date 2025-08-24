@@ -12,15 +12,10 @@ import com.example.hackathon.entity.Background;
 import com.example.hackathon.entity.CharacterEntity;
 import com.example.hackathon.entity.CharacterLevelRequirement;
 import com.example.hackathon.entity.CharacterSkin;
+import com.example.hackathon.entity.Coin;
 import com.example.hackathon.entity.UserBackground;
 import com.example.hackathon.entity.UserSkin;
-import com.example.hackathon.repository.BackgroundRepository;
-import com.example.hackathon.repository.CharacterRepository;
-import com.example.hackathon.repository.CharacterSkinRepository;
-import com.example.hackathon.repository.CoinsRepository;
-import com.example.hackathon.repository.LevelReqRepository;
-import com.example.hackathon.repository.UserBackgroundRepository;
-import com.example.hackathon.repository.UserSkinRepository;
+import com.example.hackathon.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,9 +40,9 @@ public class ShopService {
   // ✅ 공용 캐릭터 조회 (홈/상점 동일 소스)
   private final CharacterQueryService characterQueryService;
 
-  private static final int FEED_COST = 100; // 먹이 1회 = 100코인
+  private static final int FEED_COST = 100;   // 먹이 1회 = 100코인
 
-  // -------------------- 내부 유틸 (feedOnce 계산용) --------------------
+  // -------------------- 내부 유틸 --------------------
   private int feedsRequiredFormula(int level) {
     if (level <= 0 || level > 30) throw new IllegalArgumentException("level out of range");
     return (int) ((1L << level) - 1L); // 2^L - 1
@@ -59,28 +54,42 @@ public class ShopService {
             .orElseGet(() -> feedsRequiredFormula(level));
   }
 
+  /** 현재 레벨에서 다음 레벨로 가는 진화 비용 */
+  private int evolveCost(int currentLevel) {
+    if (currentLevel == 1) return 300; // 1 -> 2
+    if (currentLevel == 2) return 500; // 2 -> 3
+    // 그 외(예: 이미 최대 레벨)이면 금지
+    throw new ForbiddenException("cannot evolve from current level");
+  }
+
+  private int currentBalance(Integer userId) {
+    return coinsRepo.findByUser_Id(userId).map(Coin::getBalance).orElse(0);
+  }
+
   private BackgroundDTO toBackgroundDTO(Background b, boolean owned, boolean active) {
+    // 조회/목록용 DTO (balance 없음)
     return new BackgroundDTO(b.getId(), b.getName(), b.getPriceCoins(), owned, active);
   }
 
   private SkinDTO toSkinDTO(CharacterSkin s, boolean owned, boolean active) {
+    // 조회/목록용 DTO (balance 없음)
     return new SkinDTO(s.getId(), s.getName(), s.getPriceCoins(), owned, active);
   }
 
   // -------------------- 상단 개요/캐릭터 --------------------
   @Transactional(readOnly = true)
   public ShopOverviewDTO getOverview(Integer userId) {
-    // ✅ 캐릭터 정보는 공용 서비스에서
     CharacterInfoDTO info = characterQueryService.getCharacterInfo(userId);
     return new ShopOverviewDTO(info);
   }
 
   @Transactional(readOnly = true)
   public CharacterInfoDTO getCharacterInfo(Integer userId) {
-    // ✅ 캐릭터 정보는 공용 서비스에서
     return characterQueryService.getCharacterInfo(userId);
   }
 
+  // -------------------- 먹이 / 진화 --------------------
+  /** 먹이 1회: 게이지만 증가(레벨업하지 않음), required로 캡 */
   @Transactional
   public CharacterInfoDTO feedOnce(Integer userId) {
     if (coinsRepo.tryDeduct(userId, FEED_COST) == 0) {
@@ -91,25 +100,35 @@ public class ShopService {
             .orElseThrow(() -> new NotFoundException("character"));
 
     int required = feedsRequired(ch.getLevel());
-    int progress = ch.getFeedProgress() + 1;
-
-    if (progress >= required) {
-      ch.setLevel(ch.getLevel() + 1);
-      ch.setFeedProgress(0);
-    } else {
-      ch.setFeedProgress(progress);
-    }
+    int newProgress = Math.min(required, ch.getFeedProgress() + 1); // ★ required까지만 채움
+    ch.setFeedProgress(newProgress);
     characterRepo.save(ch);
 
-    // 반환은 공용 규격(CharacterInfoDTO) 유지
-    int nextReq = feedsRequired(ch.getLevel());
-    int toNext = Math.max(0, nextReq - ch.getFeedProgress());
-    return new CharacterInfoDTO(
-            ch.getLevel(),
-            ch.getFeedProgress(),
-            toNext,
-            ch.getActiveBackgroundId()
-    );
+    // 게이지 100%면 toNext=0 → 프론트에서 '진화 시키기' 버튼 노출
+    return characterQueryService.getCharacterInfo(userId);
+  }
+
+  /** 진화: 게이지 100% 필요, 레벨별 코인 차감 후 레벨 +1 & 게이지 0 */
+  @Transactional
+  public CharacterInfoDTO evolve(Integer userId) {
+    CharacterEntity ch = characterRepo.findByUserId(userId)
+            .orElseThrow(() -> new NotFoundException("character"));
+
+    int required = feedsRequired(ch.getLevel());
+    if (ch.getFeedProgress() < required) {
+      throw new ForbiddenException("not ready to evolve");
+    }
+
+    int cost = evolveCost(ch.getLevel()); // ★ 레벨별 비용
+    if (coinsRepo.tryDeduct(userId, cost) == 0) {
+      throw new InsufficientBalanceException();
+    }
+
+    ch.setLevel(ch.getLevel() + 1);
+    ch.setFeedProgress(0);
+    characterRepo.save(ch);
+
+    return characterQueryService.getCharacterInfo(userId);
   }
 
   // -------------------- 배경 --------------------
@@ -149,7 +168,7 @@ public class ShopService {
             .collect(Collectors.toList());
   }
 
-  /** 배경 구매 → 성공 시 BackgroundDTO 반환 */
+  /** 배경 구매 → 성공 시 BackgroundDTO(잔액 포함) 반환 */
   @Transactional
   public BackgroundDTO purchaseBackground(Integer userId, Long backgroundId) {
     Background bg = backgroundRepo.findById(backgroundId)
@@ -160,9 +179,16 @@ public class ShopService {
             .map(CharacterEntity::getActiveBackgroundId)
             .orElse(null);
 
-    // 이미 보유면 idempotent
+    // 이미 보유면 idempotent → 현재 잔액 포함해서 그대로 반환
     if (userBgRepo.existsByUserIdAndBackgroundId(userId, backgroundId)) {
-      return toBackgroundDTO(bg, true, Objects.equals(activeBg, bg.getId()));
+      return new BackgroundDTO(
+              bg.getId(),
+              bg.getName(),
+              bg.getPriceCoins(),
+              true,
+              Objects.equals(activeBg, bg.getId()),
+              currentBalance(userId)
+      );
     }
 
     if (coinsRepo.tryDeduct(userId, bg.getPriceCoins()) == 0) {
@@ -174,10 +200,17 @@ public class ShopService {
     ub.setBackgroundId(backgroundId);
     userBgRepo.save(ub);
 
-    return toBackgroundDTO(bg, true, Objects.equals(activeBg, bg.getId()));
+    return new BackgroundDTO(
+            bg.getId(),
+            bg.getName(),
+            bg.getPriceCoins(),
+            true,
+            Objects.equals(activeBg, bg.getId()),
+            currentBalance(userId)
+    );
   }
 
-  /** 보유 배경 활성화 → 성공 시 BackgroundDTO 반환 */
+  /** 보유 배경 활성화 → 성공 시 BackgroundDTO 반환 (잔액 불필요) */
   @Transactional
   public BackgroundDTO activateBackground(Integer userId, Long backgroundId) {
     userBgRepo.findByUserIdAndBackgroundId(userId, backgroundId)
@@ -232,7 +265,7 @@ public class ShopService {
             .collect(Collectors.toList());
   }
 
-  /** 스킨 구매 → 성공 시 SkinDTO 반환 */
+  /** 스킨 구매 → 성공 시 SkinDTO(잔액 포함) 반환 */
   @Transactional
   public SkinDTO purchaseSkin(Integer userId, Long skinId) {
     CharacterSkin skin = skinRepo.findById(skinId)
@@ -243,9 +276,16 @@ public class ShopService {
             .map(CharacterEntity::getActiveSkinId)
             .orElse(null);
 
-    // 이미 보유면 idempotent
+    // 이미 보유면 idempotent → 현재 잔액 포함해서 그대로 반환
     if (userSkinRepo.existsByUserIdAndSkinId(userId, skinId)) {
-      return toSkinDTO(skin, true, Objects.equals(activeSkin, skin.getId()));
+      return new SkinDTO(
+              skin.getId(),
+              skin.getName(),
+              skin.getPriceCoins(),
+              true,
+              Objects.equals(activeSkin, skin.getId()),
+              currentBalance(userId)
+      );
     }
 
     if (coinsRepo.tryDeduct(userId, skin.getPriceCoins()) == 0) {
@@ -257,10 +297,17 @@ public class ShopService {
     us.setSkinId(skinId);
     userSkinRepo.save(us);
 
-    return toSkinDTO(skin, true, Objects.equals(activeSkin, skin.getId()));
+    return new SkinDTO(
+            skin.getId(),
+            skin.getName(),
+            skin.getPriceCoins(),
+            true,
+            Objects.equals(activeSkin, skin.getId()),
+            currentBalance(userId)
+    );
   }
 
-  /** 보유 스킨 활성화 → 성공 시 SkinDTO 반환 */
+  /** 보유 스킨 활성화 → 성공 시 SkinDTO 반환 (잔액 불필요) */
   @Transactional
   public SkinDTO activateSkin(Integer userId, Long skinId) {
     userSkinRepo.findByUserIdAndSkinId(userId, skinId)
@@ -276,5 +323,25 @@ public class ShopService {
             .orElseThrow(() -> new NotFoundException("skin"));
 
     return new SkinDTO(skin.getId(), skin.getName(), skin.getPriceCoins(), true, true);
+  }
+
+  // -------------------- 캐릭터 이름 변경 --------------------
+  @Transactional
+  public CharacterInfoDTO updateCharacterName(Integer userId, String newNameRaw) {
+    String newName = newNameRaw == null ? "" : newNameRaw.trim();
+    if (newName.isEmpty()) {
+      throw new IllegalArgumentException("캐릭터 이름은 비워둘 수 없습니다.");
+    }
+    if (newName.length() > 20) {
+      throw new IllegalArgumentException("캐릭터 이름은 20자 이내여야 합니다.");
+    }
+
+    CharacterEntity ch = characterRepo.findByUserId(userId)
+            .orElseThrow(() -> new NotFoundException("character"));
+
+    ch.setDisplayName(newName);
+    characterRepo.save(ch);
+
+    return characterQueryService.getCharacterInfo(userId);
   }
 }

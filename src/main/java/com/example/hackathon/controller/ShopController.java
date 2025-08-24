@@ -9,6 +9,9 @@ import com.example.hackathon.service.ShopService;
 import com.example.hackathon.service.CoinService;   // ← 추가
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+
 
 import java.util.List;
 import java.util.Map;                                // ← 추가
@@ -86,4 +89,16 @@ public class ShopController {
     public SkinDTO activateSkin(@PathVariable Long skinId) {
         return shopService.activateSkin(currentUserId(), skinId);
     }
+
+    @PatchMapping("/character/name")
+    public CharacterInfoDTO updateCharacterName(@RequestParam String newName) {
+        return shopService.updateCharacterName(currentUserId(), newName);
+    }
+
+    @PostMapping("/evolve")
+    public CharacterInfoDTO evolve() {
+        return shopService.evolve(currentUserId());
+    }
+
+
 }

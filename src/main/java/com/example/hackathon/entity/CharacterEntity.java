@@ -16,7 +16,6 @@ public class CharacterEntity {
   @Column(name = "character_id")
   private Long id;
 
-  // user.id = INT
   @Column(name = "user_id", nullable = false)
   private Integer userId;
 
@@ -26,10 +25,18 @@ public class CharacterEntity {
   @Column(name = "feed_progress", nullable = false)
   private Integer feedProgress = 0;
 
-  // backgrounds.background_id = BIGINT
   @Column(name = "active_background_id")
   private Long activeBackgroundId;
 
   @Column(name = "active_skin_id")
   private Long activeSkinId;
+
+  // ★ 추가: 캐릭터 종류 (기본: 삐약이)
+  @Enumerated(EnumType.STRING)
+  @Column(name = "kind", nullable = false)
+  private CharacterKind kind = CharacterKind.CHICK;
+
+  // ★ 추가: 유저가 설정하는 캐릭터 이름 (기본: 삐약이)
+  @Column(name = "display_name", nullable = false)
+  private String displayName = "삐약이";
 }
