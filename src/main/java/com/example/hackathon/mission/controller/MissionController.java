@@ -104,7 +104,7 @@ public class MissionController {
     }
 
     // /** 맞춤(사용자 선호 기반) 목록 */
-    // @GetMapping("/custom")
+    //  @GetMapping("/custom")
     // public ResponseEntity<List<MissionResponse>>
     // listCustomMissions(HttpServletRequest request) {
     // User user = currentUser(request);
@@ -122,27 +122,57 @@ public class MissionController {
     // .stream().map(MissionResponse::from).toList(); // 공용 변환
     // return ResponseEntity.ok(res);
     // }
+
     /** 맞춤(사용자 선호 기반) 목록 */
-@GetMapping("/custom")
-public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
-    User user = currentUser(request);
+    @GetMapping("/custom")
+    public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
+        User user = currentUser(request);
 
-    // 현재 사용자 선호 장소(pref1~3)
-    List<PlaceCategory> prefs = List.of(
-            user.getPref1(),
-            user.getPref2(),
-            user.getPref3()
-    );
+        // 현재 사용자 선호 장소(pref1~3)
+        List<PlaceCategory> prefs = List.of(
+                user.getPref1(),
+                user.getPref2(),
+                user.getPref3()
+        );
 
-    // 완전히 리프레시
-    missionService.syncCustomMissions(user, prefs);
+        // 완전히 리프레시
+        missionService.syncCustomMissions(user, prefs);
 
-    // DB에서 방금 새로 생성된 미션만 가져오기
-    List<MissionResponse> res = missionService.listCustomMissions(user)
-            .stream().map(MissionResponse::from).toList();
+        // DB에서 방금 새로 생성된 미션만 가져오기
+        List<MissionResponse> res = missionService.listCustomMissions(user)
+                .stream().map(MissionResponse::from).toList(); // 공용 변환
 
-    return ResponseEntity.ok(res);
-}
+        return ResponseEntity.ok(res);
+    }
+
+    // ======= 추가: 같은 경로 + limit 파라미터가 있을 때만 매핑되는 버전 =======
+    @GetMapping(value = "/custom", params = "limit")
+    public ResponseEntity<List<MissionResponse>> listCustomMissionsWithLimit(
+            HttpServletRequest request,
+            @RequestParam Integer limit
+    ) {
+        User user = currentUser(request);
+
+        // 현재 사용자 선호 장소(pref1~3)
+        List<PlaceCategory> prefs = List.of(
+                user.getPref1(),
+                user.getPref2(),
+                user.getPref3()
+        );
+
+        // 완전히 리프레시
+        missionService.syncCustomMissions(user, prefs);
+
+        // DB에서 방금 새로 생성된 미션만 가져오기 + limit 적용
+        List<MissionResponse> res = missionService.listCustomMissions(user)
+                .stream()
+                .map(MissionResponse::from)
+                .limit(Math.max(0, limit))
+                .toList();
+
+        return ResponseEntity.ok(res);
+    }
+    // =====================================================================
 
     /** 상세 조회 — 숫자만 매칭되도록 정규식 추가(비숫자 경로와 충돌 방지) */
     @GetMapping("/{id:\\d+}")
