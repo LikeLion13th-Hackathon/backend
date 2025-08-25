@@ -4,20 +4,8 @@ package com.example.hackathon.service;
 import com.example.hackathon.dto.auth.LoginRequest;
 import com.example.hackathon.dto.auth.LoginResponse;
 import com.example.hackathon.dto.auth.SignUpRequest;
-import com.example.hackathon.entity.Background;
-import com.example.hackathon.entity.CharacterEntity;
-import com.example.hackathon.entity.CharacterKind;
-import com.example.hackathon.entity.User;
-import com.example.hackathon.entity.UserBackground;
-import com.example.hackathon.entity.UserCharacterProgress;
-import com.example.hackathon.entity.UserSkin;
-import com.example.hackathon.repository.BackgroundRepository;
-import com.example.hackathon.repository.CharacterRepository;
-import com.example.hackathon.repository.CharacterSkinRepository;
-import com.example.hackathon.repository.UserBackgroundRepository;
-import com.example.hackathon.repository.UserCharacterProgressRepository;
-import com.example.hackathon.repository.UserRepository;
-import com.example.hackathon.repository.UserSkinRepository;
+import com.example.hackathon.entity.*;
+import com.example.hackathon.repository.*;
 import com.example.hackathon.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -37,11 +25,11 @@ public class UserService {
     private final CharacterRepository characterRepo;
     private final UserSkinRepository userSkinRepo;
     private final UserCharacterProgressRepository progressRepo;
-
     private final BackgroundRepository backgroundRepo;
     private final UserBackgroundRepository userBackgroundRepo;
 
-    private static final long DEFAULT_BG_ID = 1L;       // 기본 배경(1번)
+    // 기본 배경/스킨 ID
+    private static final long DEFAULT_BG_ID = 1L;   // 배경 1번 (기본 배경)
 
     @Transactional
     public Integer register(SignUpRequest req) {
@@ -96,50 +84,38 @@ public class UserService {
         );
     }
 
-    /** 가입 직후 기본 삐약이/배경 보유·활성·진행도 보장 */
     @Transactional
     protected void initDefaultCharacterForUser(Integer userId) {
-        // ---- 0) 기본 배경(1번) 존재 보장 (없으면 생성)
-        backgroundRepo.findById(DEFAULT_BG_ID).orElseGet(() -> {
-            Background b = new Background();
-            // IDENTITY 전략이면 setId가 무시될 수 있으니, 스키마가 허용하지 않으면
-            // 미리 마이그레이션으로 기본 배경을 넣어두는 게 가장 안전합니다.
-            b.setName("기본 배경");
-            b.setPriceCoins(0);
-            b.setIsActive(true);
-            return backgroundRepo.save(b);
-        });
+        // === 0) 기본 배경(1,2) 보장 ===
+        ensureBackgroundExists(1L, "기본 배경1");
+        ensureBackgroundExists(2L, "기본 배경2");
 
-        // ---- 1) 기본 스킨 '삐약이' 찾기 (name 기반)
+        // === 1) 기본 스킨 '삐약이' 찾기 ===
         Long chickSkinId = skinRepo.findAll().stream()
                 .filter(s -> "삐약이".equals(s.getName()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("기본 스킨 '삐약이'가 스킨 마스터에 없습니다."))
                 .getId();
 
-        // ---- 2) 캐릭터 프로필 생성/업데이트: 활성 스킨 = 삐약이, 활성 배경 = 1
+        // === 2) 캐릭터 프로필 생성/업데이트 ===
         CharacterEntity ch = characterRepo.findByUserId(userId).orElseGet(() -> {
             CharacterEntity c = new CharacterEntity();
             c.setUserId(userId);
             return c;
         });
         ch.setKind(CharacterKind.CHICK);
-        ch.setDisplayName("삐약이");          // 레거시 표시명 (실제 표시는 UserCharacterProgress.displayName 사용)
-        ch.setActiveSkinId(chickSkinId);
-        ch.setActiveBackgroundId(DEFAULT_BG_ID);
+        ch.setDisplayName("삐약이");       // 레거시용
+        ch.setActiveSkinId(chickSkinId);  // 삐약이 활성화
+        ch.setActiveBackgroundId(1L);     // 배경 1번 활성화
         if (ch.getLevel() == null) ch.setLevel(1);
         if (ch.getFeedProgress() == null) ch.setFeedProgress(0);
         characterRepo.save(ch);
 
-        // ---- 3) 배경 소유 인벤토리 보장 (user_backgrounds)
-        if (!userBackgroundRepo.existsByUserIdAndBackgroundId(userId, DEFAULT_BG_ID)) {
-            UserBackground ub = new UserBackground();
-            ub.setUserId(userId);
-            ub.setBackgroundId(DEFAULT_BG_ID);
-            userBackgroundRepo.save(ub);
-        }
+        // === 3) 배경 보유 보장 ===
+        giveBackgroundIfNotOwned(userId, 1L);
+        giveBackgroundIfNotOwned(userId, 2L);
 
-        // ---- 4) 스킨 소유 보장 (user_skins)
+        // === 4) 스킨 보유 보장 ===
         if (!userSkinRepo.existsByUserIdAndSkinId(userId, chickSkinId)) {
             UserSkin us = new UserSkin();
             us.setUserId(userId);
@@ -147,7 +123,7 @@ public class UserService {
             userSkinRepo.save(us);
         }
 
-        // ---- 5) 스킨별 진행도/표시명 보장 (user_character_progress)
+        // === 5) 스킨별 진행도 보장 ===
         if (!progressRepo.existsByUserIdAndSkinId(userId, chickSkinId)) {
             UserCharacterProgress p = new UserCharacterProgress();
             p.setUserId(userId);
@@ -158,4 +134,25 @@ public class UserService {
             progressRepo.save(p);
         }
     }
+
+    // === 헬퍼 메서드들 ===
+    private void ensureBackgroundExists(Long id, String defaultName) {
+        backgroundRepo.findById(id).orElseGet(() -> {
+            Background b = new Background();
+            b.setName(defaultName);
+            b.setPriceCoins(0);
+            b.setIsActive(true);
+            return backgroundRepo.save(b);
+        });
+    }
+
+    private void giveBackgroundIfNotOwned(Integer userId, Long backgroundId) {
+        if (!userBackgroundRepo.existsByUserIdAndBackgroundId(userId, backgroundId)) {
+            UserBackground ub = new UserBackground();
+            ub.setUserId(userId);
+            ub.setBackgroundId(backgroundId);
+            userBackgroundRepo.save(ub);
+        }
+    }
+
 }
