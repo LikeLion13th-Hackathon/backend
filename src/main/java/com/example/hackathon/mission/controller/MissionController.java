@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequiredArgsConstructor
@@ -143,6 +144,40 @@ public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletReque
 
     return ResponseEntity.ok(res);
 }
+
+// @GetMapping("/custom")
+// public ResponseEntity<List<MissionResponse>> listCustomMissions(HttpServletRequest request) {
+//     User user = currentUser(request);
+
+//     // 현재 사용자 선호 장소(pref1~3)
+//     List<PlaceCategory> prefs = List.of(
+//             user.getPref1(),
+//             user.getPref2(),
+//             user.getPref3()
+//     );
+
+//     // 완전히 리프레시
+//     missionService.syncCustomMissions(user, prefs);
+
+//     // DB에서 새로 생성된 미션 중, 장소별로 1개씩만 선택
+//     List<UserMission> allMissions = missionService.listCustomMissions(user);
+
+//     // placeCategory별로 최신(createdAt 가장 늦은 것) 1개씩만 추출
+//     Map<PlaceCategory, UserMission> latestByCategory = allMissions.stream()
+//             .collect(Collectors.toMap(
+//                     UserMission::getPlaceCategory,
+//                     m -> m,
+//                     (m1, m2) -> m1.getCreatedAt().isAfter(m2.getCreatedAt()) ? m1 : m2
+//             ));
+
+//     List<MissionResponse> res = latestByCategory.values().stream()
+//             .map(MissionResponse::from)
+//             .toList();
+
+//     return ResponseEntity.ok(res);
+// }
+
+
 
     /** 상세 조회 — 숫자만 매칭되도록 정규식 추가(비숫자 경로와 충돌 방지) */
     @GetMapping("/{id:\\d+}")
