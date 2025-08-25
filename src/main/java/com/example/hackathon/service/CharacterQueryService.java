@@ -55,33 +55,28 @@ public class CharacterQueryService {
     // ===== 캐릭터 조회 =====
     @Transactional(readOnly = true)
     public CharacterInfoDTO getCharacterInfo(Integer userId) {
-        // 1) 캐릭터 엔티티 조회
         CharacterEntity ch = characterRepo.findByUserId(userId)
                 .orElseThrow(() -> new NotFoundException("character"));
 
-        // 2) 활성 스킨 확인
         Long activeSkinId = ch.getActiveSkinId();
-        CharacterKind kind = CharacterKind.CHICK; // 기본값
+        CharacterKind kind = CharacterKind.CHICK;
         int level = 1;
         int feedProgress = 0;
-        String displayName = "삐약이"; // 기본 표시 이름
+        String displayName = "삐약이";
 
         if (activeSkinId != null) {
             CharacterSkin skin = skinRepo.findById(activeSkinId).orElse(null);
             if (skin != null && skin.getKind() != null) {
                 kind = skin.getKind();
-                // 스킨 이름을 기본 표시명으로
                 displayName = skin.getName();
             }
 
-            // 유저-스킨별 진행도
             UserCharacterProgress p = progressRepo.findByUserIdAndSkinId(userId, activeSkinId)
                     .orElse(null);
             if (p != null) {
                 level = p.getLevel();
                 feedProgress = p.getFeedProgress();
                 if (p.getDisplayName() != null && !p.getDisplayName().isBlank()) {
-                    // 유저가 직접 바꾼 이름이 있으면 그것 사용
                     displayName = p.getDisplayName();
                 }
             }
@@ -89,11 +84,10 @@ public class CharacterQueryService {
 
         int required = feedsRequired(level);
         int toNext = Math.max(0, required - feedProgress);
-
         String title = resolveTitle(kind, level);
 
         return CharacterInfoDTO.builder()
-                .characterId(ch.getId())
+                .skinId(activeSkinId)
                 .level(level)
                 .feedProgress(feedProgress)
                 .feedsRequiredToNext(toNext)
@@ -102,4 +96,5 @@ public class CharacterQueryService {
                 .displayName(displayName)
                 .build();
     }
+
 }
