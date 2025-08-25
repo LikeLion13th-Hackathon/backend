@@ -1,6 +1,6 @@
 package com.example.hackathon.mission.service;
 
-import com.example.hackathon.ai_custom.service.AiMissionOrchestrator; 
+import com.example.hackathon.ai_custom.service.AiMissionOrchestrator;
 import com.example.hackathon.entity.User;
 import com.example.hackathon.mission.entity.*;
 import com.example.hackathon.mission.repository.UserMissionRepository;
@@ -32,8 +32,8 @@ public class MissionService {
     private boolean checkPeriod;
 
     public MissionService(UserMissionRepository repo,
-            ReceiptRepository receiptRepository,
-            AiMissionOrchestrator aiMissionOrchestrator) { // 생성자에 주입
+                          ReceiptRepository receiptRepository,
+                          AiMissionOrchestrator aiMissionOrchestrator) { // 생성자에 주입
         this.repo = repo;
         this.receiptRepository = receiptRepository;
         this.aiMissionOrchestrator = aiMissionOrchestrator;
@@ -141,7 +141,7 @@ public class MissionService {
     }
 
     private UserMission buildMission(User user, PlaceCategory p, String title, Template t,
-            LocalDate start, LocalDate end) {
+                                     LocalDate start, LocalDate end) {
         String desc = (user.getDong() != null && !user.getDong().isBlank()
                 ? user.getDong() + " "
                 : "") + p.label + " 이용 영수증을 업로드하면 자동 인증됩니다.";
@@ -255,12 +255,12 @@ public class MissionService {
                 receiptRepository.save(r);
             }
 
-            UserMission saved = repo.save(m); 
+            UserMission saved = repo.save(m);
 
             // 완료 카운트 → 3개 단위 시 오케스트레이터 호출
             int completed = repo.countCompletedByUser(user);
             if (completed % 3 == 0) {
-                aiMissionOrchestrator.recommendNextSet(user.getId().longValue()); 
+                aiMissionOrchestrator.recommendNextSet(user.getId().longValue());
             }
 
             return saved;
@@ -294,7 +294,7 @@ public class MissionService {
         if (m.getStatus() != MissionStatus.IN_PROGRESS && m.getStatus() != MissionStatus.ABANDONED) {
             throw new IllegalStateException("진행 중 또는 이미 포기된 미션에서만 초기화할 수 있습니다.");
         }
-        m.resetToReady(); 
+        m.resetToReady();
         return repo.save(m);
     }
 
@@ -345,41 +345,36 @@ public class MissionService {
                 .map(UserMission::getPlaceCategory)
                 .collect(Collectors.toSet());
 
-        Set<PlaceCategory> newCats = new HashSet<>(newPrefs);
+        // (1) 삭제 로직 비활성화: 기존 미션은 보존
+        // Set<PlaceCategory> toRemove = new HashSet<>(currentCats);
+        // toRemove.removeAll(new HashSet<>(newPrefs));
+        // for (PlaceCategory cat : toRemove) {
+        //     List<UserMission> missions = repo.findByUserAndCategoryAndPlaceCategory(user, MissionCategory.CUSTOM, cat);
+        //     for (UserMission m : missions) {
+        //         receiptRepository.deleteAllByUserMission(m);
+        //         repo.delete(m);
+        //     }
+        // }
 
-        // (1) 빠진 카테고리 미션 삭제 (영수증도 같이 삭제)
-        Set<PlaceCategory> toRemove = new HashSet<>(currentCats);
-        toRemove.removeAll(newCats);
-
-        for (PlaceCategory cat : toRemove) {
-            List<UserMission> missions = repo.findByUserAndCategoryAndPlaceCategory(user, MissionCategory.CUSTOM, cat);
-            for (UserMission m : missions) {
-                receiptRepository.deleteAllByUserMission(m); // 영수증 삭제
-                repo.delete(m);             // 미션 삭제
-            }
-        }
-
-        // (2) 새로 추가된 카테고리 미션 생성
-        Set<PlaceCategory> toAdd = new HashSet<>(newCats);
+        // (2) 새로 추가된 카테고리만 생성
+        Set<PlaceCategory> toAdd = new HashSet<>(newPrefs);
         toAdd.removeAll(currentCats);
 
-        for (PlaceCategory cat : toAdd) {
-            for (int i = 0; i < 2; i++) {
-                UserMission mission = UserMission.builder()
-                        .user(user)
-                        .category(MissionCategory.CUSTOM)
-                        .placeCategory(cat)
-                        .title(cat.name() + " 관련 미션 " + (i + 1))
-                        .description(cat.name() + " 관련 설명")
-                        .verificationType(VerificationType.RECEIPT_OCR)
-                        .status(MissionStatus.READY)
-                        .startDate(LocalDate.now())
-                        .endDate(LocalDate.now().plusDays(14))
-                        .rewardPoint(100)
-                        .build();
+        LocalDate start = LocalDate.now();
+        LocalDate end = start.plusDays(14);
 
-                repo.save(mission);
-            }
+        String prefix = (user.getDong() != null && !user.getDong().isBlank()) ? (user.getDong() + " ") : "";
+
+        for (PlaceCategory cat : toAdd) {
+            // 템플릿 기반 문장형 2개 생성 (TPL/TPL_ALT)
+            Template t1 = TPL.getOrDefault(cat, TPL.get(PlaceCategory.OTHER));
+            Template t2 = TPL_ALT.getOrDefault(cat, TPL_ALT.get(PlaceCategory.OTHER));
+
+            String title1 = buildTitle(prefix, t1.pattern(), t1.minAmount());
+            String title2 = buildTitle(prefix, t2.pattern(), t2.minAmount());
+
+            repo.save(buildMission(user, cat, title1, t1, start, end));
+            repo.save(buildMission(user, cat, title2, t2, start, end));
         }
     }
 }
