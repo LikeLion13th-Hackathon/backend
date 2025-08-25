@@ -43,7 +43,7 @@ public class HomeCardService {
                 .level(characterInfo.getLevel())
                 .displayName(characterInfo.getDisplayName())
                 .progressPercent(progressPercent)
-                .activeCharacterId(characterInfo.getCharacterId())
+                .activeCharacterId(characterInfo.getSkinId())
                 .activeBackgroundId(characterInfo.getActiveBackgroundId())
                 .build();
     }

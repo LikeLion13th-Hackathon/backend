@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class CharacterInfoDTO {
-  private Long characterId;        // 활성 캐릭터 PK
+  private Long skinId;              // ✅ 변경: characterId 대신 skinId
   private int level;
   private int feedProgress;
   private int feedsRequiredToNext;
