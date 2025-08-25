@@ -73,7 +73,7 @@ public class ReceiptOcrParser {
     );
     private static final Set<String> SIDO_FULL = new HashSet<>(SIDO_MAP.values());
 
-    // ★ 구만 나올 때 시/도 보정
+    // 구만 나올 때 시/도 보정
     private static final Set<String> SEOUL_GU = new HashSet<>(Arrays.asList(
             "강남구","강동구","강북구","강서구","관악구","광진구","구로구","금천구","노원구","도봉구","동대문구",
             "동작구","마포구","서대문구","서초구","성동구","성북구","송파구","양천구","영등포구","용산구",
@@ -82,7 +82,7 @@ public class ReceiptOcrParser {
 
     // ===== 상호 키워드/정제 =====
     private static final String[] STORE_HINTS = {"상호","상호명","가맹점","매장명","업체명","상점명"};
-    private static final String[] STORE_STOPWORDS = { // ★ 상단 제목 제거
+    private static final String[] STORE_STOPWORDS = { // 상단 제목 제거
             "영수증","[영 수 증]","영 수 증","[영수증]","매출전표","신용승인정보","고객용","가맹점용"
     };
     private static final Pattern BRANCH_POINT = Pattern.compile(".+점\\)?" ); // ★ ○○점 포함 라인 선호

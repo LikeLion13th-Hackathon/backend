@@ -32,8 +32,8 @@ public class MissionService {
     private boolean checkPeriod;
 
     public MissionService(UserMissionRepository repo,
-                          ReceiptRepository receiptRepository,
-                          AiMissionOrchestrator aiMissionOrchestrator) { // 생성자에 주입
+            ReceiptRepository receiptRepository,
+            AiMissionOrchestrator aiMissionOrchestrator) { // 생성자에 주입
         this.repo = repo;
         this.receiptRepository = receiptRepository;
         this.aiMissionOrchestrator = aiMissionOrchestrator;
@@ -62,15 +62,15 @@ public class MissionService {
     // ====== 기본 템플릿 (1번 미션) ======
     private static final Map<PlaceCategory, Template> TPL = new EnumMap<>(PlaceCategory.class);
     static {
-        put(PlaceCategory.CAFE, "카페에서 %s원 이상 결제하기", 3000, 200);
-        put(PlaceCategory.RESTAURANT, "음식점에서 %s원 이상 결제하기", 7000, 250);
-        put(PlaceCategory.MUSEUM, "박물관 입장권 영수증 인증하기", 3000, 250);
-        put(PlaceCategory.LIBRARY, "서점/문구점에서 %s원 이상 결제하기", 2000, 150);
-        put(PlaceCategory.PARK, "편의점에서 음료나 간식 %s원 이상 결제하기", 2000, 150);
-        put(PlaceCategory.SPORTS_FACILITY, "운동 시설 이용권 영수증 인증하기", 10000, 200);
-        put(PlaceCategory.SHOPPING_MALL, "쇼핑센터에서 %s원 이상 결제하기", 8000, 250);
-        put(PlaceCategory.TRADITIONAL_MARKET, "전통 시장에서 %s원 이상 결제하기", 5000, 250);
-        put(PlaceCategory.OTHER, "주변 상점에서 %s원 이상 결제하기", 3000, 150);
+        put(PlaceCategory.CAFE, "카페에서 시원한 아아 한 잔 %s원 이상 인증하기", 3000, 80);
+        put(PlaceCategory.RESTAURANT, "맛집에서 든든하게 %s원 이상 먹고 영수증 인증!", 7000, 100);
+        put(PlaceCategory.MUSEUM, "박물관 티켓 영수증으로 지식 충전 인증하기", 3000, 90);
+        put(PlaceCategory.LIBRARY, "책 냄새 맡으러 서점/문구점 %s원 이상 구매 인증", 2000, 100);
+        put(PlaceCategory.PARK, "편의점에서 공원 간식 %s원 이상 사 먹기 인증", 2000, 90);
+        put(PlaceCategory.SPORTS_FACILITY, "헬창 모드! 운동 시설 %s원 이상 결제 인증", 10000, 80);
+        put(PlaceCategory.SHOPPING_MALL, "쇼핑센터에서 충동구매 %s원 이상 인증하기", 8000, 100);
+        put(PlaceCategory.TRADITIONAL_MARKET, "시장 통닭/군밤 %s원 이상 사 먹고 인증!", 5000, 90);
+        put(PlaceCategory.OTHER, "동네 가게에서 %s원 이상 소소한 소비 인증", 3000, 80);
     }
 
     private static void put(PlaceCategory c, String p, int min, int r) {
@@ -83,16 +83,16 @@ public class MissionService {
     // ====== 보조 템플릿 (2번 미션: 금액/리워드/문구를 직접 지정) ======
     private static final Map<PlaceCategory, Template> TPL_ALT = new EnumMap<>(PlaceCategory.class);
     static {
-        TPL_ALT.put(PlaceCategory.CAFE, new Template("카페에서 %s원 이상 결제하기", 2000, 150));
-        TPL_ALT.put(PlaceCategory.RESTAURANT, new Template("음식점에서 %s원 이상 결제하기", 5000, 200));
-        TPL_ALT.put(PlaceCategory.SHOPPING_MALL, new Template("쇼핑센터에서 %s원 이상 결제하기", 6000, 200));
-        TPL_ALT.put(PlaceCategory.TRADITIONAL_MARKET, new Template("전통 시장에서 %s원 이상 결제하기", 3000, 200));
-        TPL_ALT.put(PlaceCategory.OTHER, new Template("주변 상점에서 %s원 이상 결제하기", 2000, 100));
+        TPL_ALT.put(PlaceCategory.CAFE, new Template("카페에서 디저트까지 곁들여 %s원 이상 인증하기", 2000, 100));
+        TPL_ALT.put(PlaceCategory.RESTAURANT, new Template("음식점에서 밥+후식까지 %s원 이상 영수증 인증", 5000, 80));
+        TPL_ALT.put(PlaceCategory.SHOPPING_MALL, new Template("쇼핑몰에서 지갑 털고 %s원 이상 영수증 인증", 6000, 90));
+        TPL_ALT.put(PlaceCategory.TRADITIONAL_MARKET, new Template("시장 떡볶이+튀김 %s원 이상 먹고 인증!", 3000, 100));
+        TPL_ALT.put(PlaceCategory.OTHER, new Template("랜덤 가게에서 기분 소비 %s원 이상 영수증 인증", 2000, 80));
 
-        TPL_ALT.put(PlaceCategory.MUSEUM, new Template("미술관 관람 영수증 인증하기", 2000, 200));
-        TPL_ALT.put(PlaceCategory.LIBRARY, new Template("도서관 이용 영수증 인증하기", 2000, 100));
-        TPL_ALT.put(PlaceCategory.PARK, new Template("자전거/운동 기구 대여 %원 이상 이용", 2000, 100));
-        TPL_ALT.put(PlaceCategory.SPORTS_FACILITY, new Template("운동 시설 이용권 영수증 인증하기", 10000, 200));
+        TPL_ALT.put(PlaceCategory.MUSEUM, new Template("미술관 티켓 영수증으로 감성 충전 인증", 2000, 90));
+        TPL_ALT.put(PlaceCategory.LIBRARY, new Template("도서관 복사/출력 %s원 이상 영수증 인증", 2000, 100));
+        TPL_ALT.put(PlaceCategory.PARK, new Template("공원 자전거 대여 %s원 이상 영수증 인증", 2000, 100));
+        TPL_ALT.put(PlaceCategory.SPORTS_FACILITY, new Template("헬스장 PT권 %s원 이상 결제 영수증 인증", 10000, 80));
     }
 
     // 회원가입 직후 초기 맞춤 미션 생성
@@ -141,7 +141,7 @@ public class MissionService {
     }
 
     private UserMission buildMission(User user, PlaceCategory p, String title, Template t,
-                                     LocalDate start, LocalDate end) {
+            LocalDate start, LocalDate end) {
         String desc = (user.getDong() != null && !user.getDong().isBlank()
                 ? user.getDong() + " "
                 : "") + p.label + " 이용 영수증을 업로드하면 자동 인증됩니다.";
@@ -349,11 +349,12 @@ public class MissionService {
         // Set<PlaceCategory> toRemove = new HashSet<>(currentCats);
         // toRemove.removeAll(new HashSet<>(newPrefs));
         // for (PlaceCategory cat : toRemove) {
-        //     List<UserMission> missions = repo.findByUserAndCategoryAndPlaceCategory(user, MissionCategory.CUSTOM, cat);
-        //     for (UserMission m : missions) {
-        //         receiptRepository.deleteAllByUserMission(m);
-        //         repo.delete(m);
-        //     }
+        // List<UserMission> missions = repo.findByUserAndCategoryAndPlaceCategory(user,
+        // MissionCategory.CUSTOM, cat);
+        // for (UserMission m : missions) {
+        // receiptRepository.deleteAllByUserMission(m);
+        // repo.delete(m);
+        // }
         // }
 
         // (2) 새로 추가된 카테고리만 생성
@@ -378,4 +379,3 @@ public class MissionService {
         }
     }
 }
-

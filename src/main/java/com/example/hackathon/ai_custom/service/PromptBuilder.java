@@ -125,7 +125,7 @@ public class PromptBuilder {
                 .append("    \"description\": string(최대 120자, 구체적 행동/조건/팁 포함),\n")
                 .append("    \"category\": string(아래 허용 목록 중 정확히 하나),\n")
                 .append("    \"minAmount\": integer(0 또는 1000~20000에서 상황 맞춤),\n")
-                .append("    \"rewardPoint\": integer(50~300 가변),\n")
+                .append("    \"rewardPoint\": integer(100~200 가변),\n")
                 .append("    \"verificationType\": \"RECEIPT_OCR\"\n")
                 .append("  }, ... 총 4개]\n\n");
 
